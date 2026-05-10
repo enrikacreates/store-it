@@ -53,8 +53,8 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
   const leadInput = useRef<HTMLInputElement>(null)
   const galleryInput = useRef<HTMLInputElement>(null)
 
-  // In create mode, always editing.
-  const [editing, setEditing] = useState(isCreating)
+  // Always editing — no read-only view; clicking from the dashboard lands directly in the editor.
+  const [editing, setEditing] = useState(true)
 
   const initialLeadId = location && typeof location.image === 'object' && location.image ? (location.image.id ?? null) : null
   const initialLeadUrl = mediaUrl(location?.image, 'hero')
@@ -177,7 +177,7 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
       if (isCreating && newId) {
         router.push(`/l/${newId}`)
       } else {
-        setEditing(false)
+        // Stay in edit mode after save — refresh underlying data.
         router.refresh()
       }
     } catch {
@@ -205,12 +205,8 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
   }
 
   const handleCancel = () => {
-    if (isCreating) {
-      router.push('/')
-      return
-    }
-    reset()
-    setEditing(false)
+    // No read-only mode to fall back to — Cancel always returns to the dashboard.
+    router.push('/')
   }
 
   return (
@@ -371,27 +367,19 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
 
       {/* Actions */}
       <div className="si-detail-actions">
-        {editing ? (
-          <>
-            {error && <div className="si-error">{error}</div>}
-            {!isCreating && (
-              <button type="button" className="si-btn si-btn--danger si-btn--sm" onClick={handleDelete} disabled={saving}>
-                Delete space
-              </button>
-            )}
-            <span className="si-edit-spacer" />
-            <button type="button" className="si-btn si-btn--ghost si-btn--sm" onClick={handleCancel} disabled={saving}>
-              Cancel
-            </button>
-            <button type="button" className="si-btn si-btn--sm" onClick={handleSave} disabled={saving || !name.trim()}>
-              {saving ? 'Saving…' : isCreating ? 'Create space' : 'Save'}
-            </button>
-          </>
-        ) : (
-          <button type="button" className="si-btn si-btn--ghost" onClick={() => setEditing(true)}>
-            Edit
+        {error && <div className="si-error">{error}</div>}
+        {!isCreating && (
+          <button type="button" className="si-btn si-btn--danger si-btn--sm" onClick={handleDelete} disabled={saving}>
+            Delete space
           </button>
         )}
+        <span className="si-edit-spacer" />
+        <button type="button" className="si-btn si-btn--ghost si-btn--sm" onClick={handleCancel} disabled={saving}>
+          {isCreating ? 'Cancel' : 'Done'}
+        </button>
+        <button type="button" className="si-btn si-btn--sm" onClick={handleSave} disabled={saving || !name.trim()}>
+          {saving ? 'Saving…' : isCreating ? 'Create space' : 'Save'}
+        </button>
       </div>
     </div>
   )
