@@ -361,6 +361,86 @@ a { color: inherit; }
   transform: none;
 }
 
+/* ---- Category strip ---- */
+.si-cat-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.si-cat-chip {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--shadow-card);
+  border: none;
+  cursor: default;
+  white-space: nowrap;
+}
+button.si-cat-chip {
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.12s ease;
+}
+button.si-cat-chip:hover {
+  transform: translateY(-1px);
+}
+.si-cat-chip--add {
+  background: transparent;
+  color: var(--orange);
+  box-shadow: 0 0 0 1.5px var(--orange) inset;
+  font-weight: 600;
+}
+.si-cat-chip--add:hover {
+  background: var(--orange);
+  color: #fff;
+}
+.si-cat-add-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--card);
+  padding: 4px 4px 4px 12px;
+  border-radius: 999px;
+  box-shadow: var(--shadow-card);
+}
+.si-cat-input {
+  font-family: inherit;
+  font-size: 13px;
+  border: none;
+  outline: none;
+  background: transparent;
+  width: 140px;
+  color: var(--text);
+}
+.si-cat-add-save {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  background: var(--orange);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.si-cat-add-save:disabled { opacity: 0.5; cursor: default; }
+.si-cat-add-cancel {
+  font-family: inherit;
+  font-size: 14px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px 8px;
+}
+.si-cat-error {
+  flex-basis: 100%;
+}
+
 /* ---- Bento grid (single container with thin internal dividers) ---- */
 .si-bento {
   display: grid;

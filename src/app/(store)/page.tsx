@@ -7,6 +7,7 @@ import { LocationTile } from './components/LocationTile'
 import { AddLocationTile } from './components/AddLocationTile'
 import { ItemQuickAdd } from './components/ItemQuickAdd'
 import { ItemRow } from './components/ItemRow'
+import { CategoryStrip } from './components/CategoryStrip'
 import { pickRandomTiles } from './heroRows'
 
 export const dynamic = 'force-dynamic'
@@ -79,6 +80,11 @@ export default async function HomePage() {
 
       <section className="si-section">
         <ItemQuickAdd />
+      </section>
+
+      <section className="si-section">
+        <h2 className="si-section-title">Categories</h2>
+        <CategoryStrip categories={categories} />
       </section>
 
       <section className="si-section">
