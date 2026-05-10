@@ -7,7 +7,7 @@ import { LocationTile } from './components/LocationTile'
 import { AddLocationTile } from './components/AddLocationTile'
 import { ItemQuickAdd } from './components/ItemQuickAdd'
 import { ItemRow } from './components/ItemRow'
-import { HERO_ROWS } from './heroRows'
+import { pickRandomTiles } from './heroRows'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,12 +54,16 @@ export default async function HomePage() {
   const tags = tagsRes.docs.map((t) => ({ id: String(t.id), name: t.name }))
   const hasItems = items.length > 0
   const hasLocations = locations.length > 0
-  const heroRow = HERO_ROWS[Math.floor(Math.random() * HERO_ROWS.length)]
+  const heroTiles = pickRandomTiles(4)
 
   return (
     <main className="si-page">
-      <div className="si-dash-hero" aria-hidden>
-        <img src={`/signup-hero-${heroRow}.png`} alt="" />
+      <div className="si-dash-strip" aria-hidden>
+        {heroTiles.map((t, i) => (
+          <div className="si-dash-strip-cell" key={`${t.row}-${t.col}-${i}`}>
+            <img src={`/signup-tile-${t.row}-${t.col}.png`} alt="" />
+          </div>
+        ))}
       </div>
 
       <header className="si-header">
