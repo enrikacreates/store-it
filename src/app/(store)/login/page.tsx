@@ -2,6 +2,7 @@ import React from 'react'
 import { SignInForm } from './SignInForm'
 
 export const metadata = { title: 'Sign in — Store It' }
+export const dynamic = 'force-dynamic'
 
 export default function SignInPage() {
   return (
