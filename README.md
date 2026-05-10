@@ -1,6 +1,6 @@
 # Store It
 
-**Store it, find it.** A simple home organization app for creatives.
+**Store it. Find it.** A simple home organization app for creatives.
 
 Track where personal items are stored across recursive Locations with hotspot photos. Killer feature is "Where is it?" search.
 
