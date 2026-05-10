@@ -27,6 +27,7 @@ type Location = {
   id: string
   name: string
   primarilyFor?: string | null
+  description?: string | null
   image?: Media | string | null
   accessPattern?: string | null
   gallery?: GalleryEntry[] | null
@@ -62,6 +63,7 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
   const [name, setName] = useState(location?.name ?? '')
   const [primarilyFor, setPrimarilyFor] = useState(location?.primarilyFor ?? '')
   const [accessPattern, setAccessPattern] = useState<string>(location?.accessPattern ?? '')
+  const [notes, setNotes] = useState(location?.description ?? '')
   const [leadImageId, setLeadImageId] = useState<string | null>(initialLeadId)
   const [leadImageUrl, setLeadImageUrl] = useState<string | null>(initialLeadUrl)
   const [gallery, setGallery] = useState<GalleryEntry[]>(location?.gallery ?? [])
@@ -74,6 +76,7 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     setName(location?.name ?? '')
     setPrimarilyFor(location?.primarilyFor ?? '')
     setAccessPattern(location?.accessPattern ?? '')
+    setNotes(location?.description ?? '')
     setLeadImageId(initialLeadId)
     setLeadImageUrl(initialLeadUrl)
     setGallery(location?.gallery ?? [])
@@ -150,6 +153,7 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
       const body: Record<string, unknown> = {
         name: name.trim(),
         primarilyFor: primarilyFor.trim() || null,
+        description: notes.trim() || null,
         image: leadImageId || null,
         accessPattern: accessPattern || null,
         gallery: galleryPayload,
@@ -291,6 +295,18 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
           </>
         )}
       </header>
+
+      {/* Notes */}
+      <section className="si-section">
+        <h2 className="si-section-title">Notes</h2>
+        <textarea
+          className="si-field si-textarea si-detail-notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Ideas, thoughts, organization plans for this space…"
+          rows={4}
+        />
+      </section>
 
       {/* Gallery */}
       <section className="si-section">

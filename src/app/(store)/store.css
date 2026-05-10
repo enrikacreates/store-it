@@ -919,6 +919,14 @@ button.si-cat-chip:hover {
   font-weight: 300;
 }
 
+.si-detail-notes {
+  width: 100%;
+  font-size: 14px;
+  line-height: 1.55;
+  padding: 14px 16px;
+  min-height: 100px;
+}
+
 .si-detail-actions {
   display: flex;
   align-items: center;
