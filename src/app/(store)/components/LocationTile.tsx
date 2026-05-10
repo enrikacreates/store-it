@@ -1,5 +1,6 @@
 import React from 'react'
 import Link from 'next/link'
+import { accessPatternDef } from '../accessPatterns'
 
 type Media = { id: string; url?: string; sizes?: { card?: { url?: string }; thumbnail?: { url?: string } } }
 
@@ -14,11 +15,20 @@ type Location = {
 export function LocationTile({ location }: { location: Location }) {
   const initialMedia = typeof location.image === 'object' && location.image !== null ? location.image : null
   const initialImgUrl = initialMedia?.sizes?.card?.url || initialMedia?.sizes?.thumbnail?.url || initialMedia?.url || null
+  const ap = accessPatternDef(location.accessPattern)
 
   return (
     <Link className="si-tile" href={`/l/${location.id}`} aria-label={`Open ${location.name}`}>
       <div className="si-tile-image">
         {initialImgUrl ? <img src={initialImgUrl} alt="" /> : <div className="si-tile-placeholder" aria-hidden>📍</div>}
+        {ap && (
+          <span
+            className="si-tile-ap"
+            style={{ background: ap.color, color: ap.textColor }}
+          >
+            {ap.label}
+          </span>
+        )}
       </div>
       <div className="si-tile-text">
         <div className="si-tile-name">{location.name}</div>

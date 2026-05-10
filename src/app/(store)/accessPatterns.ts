@@ -1,13 +1,26 @@
 export type AccessPattern = 'quick-access' | 'long-term' | 'seasonal' | 'on-the-go' | 'active-project'
 
-export const ACCESS_PATTERNS: { value: AccessPattern; label: string }[] = [
-  { value: 'quick-access', label: 'Quick access' },
-  { value: 'long-term', label: 'Long-term storage' },
-  { value: 'seasonal', label: 'Seasonal' },
-  { value: 'on-the-go', label: 'On-the-go' },
-  { value: 'active-project', label: 'Active project' },
+export type AccessPatternDef = {
+  value: AccessPattern
+  label: string
+  /** Pill background color */
+  color: string
+  /** Text color on the pill */
+  textColor: string
+}
+
+export const ACCESS_PATTERNS: AccessPatternDef[] = [
+  { value: 'quick-access', label: 'Quick access', color: '#FA9B64', textColor: '#FFFFFF' },
+  { value: 'long-term', label: 'Long-term storage', color: '#6E6E6E', textColor: '#FFFFFF' },
+  { value: 'seasonal', label: 'Seasonal', color: '#FDC4C5', textColor: '#1A1A1A' },
+  { value: 'on-the-go', label: 'On-the-go', color: '#79C9B1', textColor: '#FFFFFF' },
+  { value: 'active-project', label: 'Active project', color: '#1A1A1A', textColor: '#FFFFFF' },
 ]
 
+export function accessPatternDef(value?: string | null): AccessPatternDef | null {
+  return ACCESS_PATTERNS.find((p) => p.value === value) ?? null
+}
+
 export function accessPatternLabel(value?: string | null): string | null {
-  return ACCESS_PATTERNS.find((p) => p.value === value)?.label ?? null
+  return accessPatternDef(value)?.label ?? null
 }
