@@ -107,14 +107,18 @@ function DroppableAddCell({ slot }: { slot: number }) {
   )
 }
 
+function normalize(locs: Location[]): Location[] {
+  return locs.map((l) => ({ ...l, id: String(l.id) }))
+}
+
 export function SpacesBento({ locations: propLocations }: { locations: Location[] }) {
   const router = useRouter()
   const [pageIdx, setPageIdx] = useState(0)
   const [activeDragLoc, setActiveDragLoc] = useState<Location | null>(null)
-  const [locations, setLocations] = useState<Location[]>(propLocations)
+  const [locations, setLocations] = useState<Location[]>(() => normalize(propLocations))
 
   useEffect(() => {
-    setLocations(propLocations)
+    setLocations(normalize(propLocations))
   }, [propLocations])
 
   // Build slot map keyed by sortOrder, plus reverse locId→slot lookup.
@@ -169,18 +173,28 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
   const handleDragEnd = async (e: DragEndEvent) => {
     setActiveDragLoc(null)
     const { active, over } = e
-    if (!over || active.id === over.id) return
+    console.log('[DnD] dragEnd', { activeId: active.id, overId: over?.id })
+    if (!over || active.id === over.id) {
+      console.log('[DnD] bail: no over or same as active')
+      return
+    }
 
     const activeId = String(active.id)
     const overId = String(over.id)
 
     if (!activeId.startsWith('loc:')) return
     const activeLocId = activeId.slice('loc:'.length)
-    const activeLoc = locations.find((l) => l.id === activeLocId)
-    if (!activeLoc) return
+    const activeLoc = locations.find((l) => String(l.id) === activeLocId)
+    if (!activeLoc) {
+      console.log('[DnD] bail: activeLoc not found', activeLocId, locations.map((l) => l.id))
+      return
+    }
 
-    const oldSlot = locToSlot.get(activeLoc.id)
-    if (oldSlot === undefined) return
+    const oldSlot = locToSlot.get(String(activeLoc.id))
+    if (oldSlot === undefined) {
+      console.log('[DnD] bail: oldSlot undefined for', activeLoc.id, [...locToSlot.entries()])
+      return
+    }
 
     let targetSlot: number
     let displacedLoc: Location | undefined
@@ -189,21 +203,26 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
       targetSlot = Number.parseInt(overId.slice('add:'.length), 10)
     } else if (overId.startsWith('loc:')) {
       const overLocId = overId.slice('loc:'.length)
-      displacedLoc = locations.find((l) => l.id === overLocId)
-      const displacedSlot = displacedLoc ? locToSlot.get(displacedLoc.id) : undefined
-      if (!displacedLoc || displacedSlot === undefined) return
+      displacedLoc = locations.find((l) => String(l.id) === overLocId)
+      const displacedSlot = displacedLoc ? locToSlot.get(String(displacedLoc.id)) : undefined
+      if (!displacedLoc || displacedSlot === undefined) {
+        console.log('[DnD] bail: displaced lookup failed', overLocId)
+        return
+      }
       targetSlot = displacedSlot
     } else {
       return
     }
 
+    console.log('[DnD] swap', { activeLocId, oldSlot, targetSlot, displaced: displacedLoc?.id })
     if (targetSlot === oldSlot) return
 
     // Optimistic local update
     setLocations((prev) =>
       prev.map((l) => {
-        if (l.id === activeLoc.id) return { ...l, sortOrder: targetSlot }
-        if (displacedLoc && l.id === displacedLoc.id) return { ...l, sortOrder: oldSlot }
+        if (String(l.id) === String(activeLoc.id)) return { ...l, sortOrder: targetSlot }
+        if (displacedLoc && String(l.id) === String(displacedLoc.id))
+          return { ...l, sortOrder: oldSlot }
         return l
       }),
     )
@@ -225,9 +244,11 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
           }),
         )
       }
-      await Promise.all(calls)
+      const results = await Promise.all(calls)
+      console.log('[DnD] PATCH results', results.map((r) => r.status))
       router.refresh()
-    } catch {
+    } catch (err) {
+      console.log('[DnD] PATCH error', err)
       router.refresh()
     }
   }
