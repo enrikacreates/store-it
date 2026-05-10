@@ -33,8 +33,28 @@ export const Locations: CollectionConfig = {
       type: 'upload',
       relationTo: 'media',
       admin: {
-        description: 'Photo of this location — items can be pinned to it via hotspots',
+        description: 'Lead photo — appears on the dashboard tile.',
       },
+    },
+    {
+      name: 'gallery',
+      type: 'array',
+      label: 'Gallery',
+      admin: {
+        description: 'Additional photos showing detail, drawers, organization views, etc.',
+      },
+      fields: [
+        {
+          name: 'image',
+          type: 'upload',
+          relationTo: 'media',
+          required: true,
+        },
+        {
+          name: 'caption',
+          type: 'text',
+        },
+      ],
     },
     {
       name: 'icon',
