@@ -218,7 +218,7 @@ export function ItemRow({ item, locations, categories, tags }: Props) {
       </label>
 
       <div className="si-edit-row">
-        <span className="si-edit-label">Access pattern</span>
+        <span className="si-edit-label">Access frequency</span>
         <div className="si-tagpicker">
           {ACCESS_PATTERNS.map((p) => (
             <button

@@ -66,7 +66,7 @@ export const Locations: CollectionConfig = {
     {
       name: 'accessPattern',
       type: 'select',
-      label: 'Access pattern',
+      label: 'Access frequency',
       options: [
         { label: 'Quick access', value: 'quick-access' },
         { label: 'Long-term', value: 'long-term' },
