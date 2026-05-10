@@ -7,7 +7,6 @@ import { LocationTile } from './components/LocationTile'
 import { AddLocationTile } from './components/AddLocationTile'
 import { ItemQuickAdd } from './components/ItemQuickAdd'
 import { ItemRow } from './components/ItemRow'
-import { HeroRotator } from './signup/HeroRotator'
 import { HERO_ROWS } from './heroRows'
 
 export const dynamic = 'force-dynamic'
@@ -55,12 +54,12 @@ export default async function HomePage() {
   const tags = tagsRes.docs.map((t) => ({ id: String(t.id), name: t.name }))
   const hasItems = items.length > 0
   const hasLocations = locations.length > 0
-  const heroStartIdx = Math.floor(Math.random() * HERO_ROWS.length)
+  const heroRow = HERO_ROWS[Math.floor(Math.random() * HERO_ROWS.length)]
 
   return (
     <main className="si-page">
       <div className="si-dash-hero" aria-hidden>
-        <HeroRotator rows={HERO_ROWS} startIdx={heroStartIdx} />
+        <img src={`/signup-hero-${heroRow}.png`} alt="" />
       </div>
 
       <header className="si-header">
