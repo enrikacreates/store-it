@@ -42,7 +42,7 @@ a { color: inherit; }
   padding: 0 10px;
 }
 .si-dash-strip-cell {
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 10 / 7;
   overflow: hidden;
   border-radius: 14px;
   background: var(--bg);
@@ -361,11 +361,19 @@ a { color: inherit; }
   transform: none;
 }
 
-/* ---- Bento grid ---- */
+/* ---- Bento grid (single container with thin internal dividers) ---- */
 .si-bento {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: rgba(26, 26, 26, 0.12);
+  border: 0.5px solid rgba(26, 26, 26, 0.12);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+@media (max-width: 720px) {
+  .si-bento { grid-template-columns: repeat(2, 1fr); }
 }
 .si-tile {
   display: flex;
@@ -373,19 +381,17 @@ a { color: inherit; }
   text-decoration: none;
   color: var(--text);
   background: var(--card);
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: var(--shadow-card);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: background 0.15s ease;
   font: inherit;
   border: none;
+  border-radius: 0;
   cursor: pointer;
   text-align: left;
   padding: 0;
+  min-height: 120px;
 }
 .si-tile:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-card-hover);
+  background: var(--bg);
 }
 .si-tile-image {
   aspect-ratio: 4 / 3;
@@ -393,6 +399,7 @@ a { color: inherit; }
   display: flex;
   align-items: center;
   justify-content: center;
+  border-bottom: 0.5px solid rgba(26, 26, 26, 0.08);
 }
 .si-tile-image img {
   width: 100%;
@@ -410,31 +417,41 @@ a { color: inherit; }
   padding: 12px 14px;
 }
 .si-tile--add {
-  align-items: stretch;
-  justify-content: stretch;
-  background: transparent;
-  box-shadow: 0 0 0 2px rgba(26, 26, 26, 0.08) inset;
+  align-items: center;
+  justify-content: center;
+  background: var(--card);
+  min-height: 160px;
 }
 .si-tile--add .si-tile-image {
-  background: transparent;
+  display: none;
+}
+.si-tile--add .si-tile-name {
+  font-weight: 500;
+  color: var(--text-muted);
+  padding: 8px 14px 16px;
 }
 .si-tile-add-icon {
   font-size: 32px;
   font-weight: 300;
   color: var(--orange);
+  margin-top: 24px;
 }
 .si-tile--add:hover {
-  box-shadow: 0 0 0 2px var(--orange) inset, var(--shadow-card-hover);
+  background: #FFF8F2;
+}
+.si-tile--add:hover .si-tile-name {
+  color: var(--text);
 }
 .si-tile--add-active {
   display: flex;
   flex-direction: column;
   background: var(--card);
-  border-radius: 16px;
+  border-radius: 0;
   padding: 14px;
   gap: 10px;
-  box-shadow: var(--shadow-card);
   border: none;
+  min-height: 160px;
+  justify-content: center;
 }
 .si-tile-input {
   font-family: inherit;
