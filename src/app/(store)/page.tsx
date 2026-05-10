@@ -45,10 +45,10 @@ export default async function HomePage() {
   ])
 
   const locations = topLocationsRes.docs
-  const allLocations = allLocationsRes.docs.map((l) => ({ id: l.id, name: l.name }))
+  const allLocations = allLocationsRes.docs.map((l) => ({ id: String(l.id), name: l.name }))
   const items = itemsRes.docs
-  const categories = categoriesRes.docs.map((c) => ({ id: c.id, name: c.name, color: (c as { color?: string | null }).color ?? null }))
-  const tags = tagsRes.docs.map((t) => ({ id: t.id, name: t.name }))
+  const categories = categoriesRes.docs.map((c) => ({ id: String(c.id), name: c.name, color: (c as { color?: string | null }).color ?? null }))
+  const tags = tagsRes.docs.map((t) => ({ id: String(t.id), name: t.name }))
   const hasItems = items.length > 0
   const hasLocations = locations.length > 0
 
