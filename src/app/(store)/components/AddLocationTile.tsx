@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-export function AddLocationTile({ parentId }: { parentId?: string }) {
+export function AddLocationTile({ parentId, targetSlot }: { parentId?: string; targetSlot?: number }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
@@ -18,6 +18,7 @@ export function AddLocationTile({ parentId }: { parentId?: string }) {
     try {
       const body: Record<string, unknown> = { name: name.trim() }
       if (parentId) body.parent = parentId
+      if (typeof targetSlot === 'number') body.sortOrder = targetSlot
       const res = await fetch('/api/locations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
