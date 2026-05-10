@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
   TouchSensor,
   useSensor,
@@ -61,18 +62,17 @@ function DraggableLocationCell({ loc }: { loc: Location }) {
     droppable.setNodeRef(node)
   }
 
+  // No transform on the original — the DragOverlay handles the moving preview.
   const style: React.CSSProperties = {
-    transform: draggable.transform
-      ? `translate3d(${draggable.transform.x}px, ${draggable.transform.y}px, 0)`
-      : undefined,
-    transition: draggable.isDragging ? 'none' : 'transform 0.15s ease',
-    zIndex: draggable.isDragging ? 10 : 'auto',
-    opacity: draggable.isDragging ? 0.5 : 1,
     position: 'relative',
     height: '100%',
-    display: 'flex',
-    outline: droppable.isOver && !draggable.isDragging ? `2px solid var(--orange)` : 'none',
-    outlineOffset: droppable.isOver && !draggable.isDragging ? '-2px' : 0,
+    width: '100%',
+    opacity: draggable.isDragging ? 0.3 : 1,
+    outline:
+      droppable.isOver && !draggable.isDragging
+        ? '3px solid var(--orange)'
+        : 'none',
+    outlineOffset: droppable.isOver && !draggable.isDragging ? '-3px' : 0,
   }
 
   return (
@@ -96,9 +96,9 @@ function DroppableAddCell({ slot }: { slot: number }) {
   const style: React.CSSProperties = {
     position: 'relative',
     height: '100%',
-    display: 'flex',
-    outline: isOver ? '2px solid var(--orange)' : 'none',
-    outlineOffset: isOver ? '-2px' : 0,
+    width: '100%',
+    outline: isOver ? '3px solid var(--orange)' : 'none',
+    outlineOffset: isOver ? '-3px' : 0,
   }
   return (
     <div ref={setNodeRef} style={style}>
@@ -110,7 +110,7 @@ function DroppableAddCell({ slot }: { slot: number }) {
 export function SpacesBento({ locations: propLocations }: { locations: Location[] }) {
   const router = useRouter()
   const [pageIdx, setPageIdx] = useState(0)
-  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [activeDragLoc, setActiveDragLoc] = useState<Location | null>(null)
   const [locations, setLocations] = useState<Location[]>(propLocations)
 
   useEffect(() => {
@@ -158,11 +158,16 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
   )
 
   const handleDragStart = (e: DragStartEvent) => {
-    setDraggingId(String(e.active.id))
+    const id = String(e.active.id)
+    if (id.startsWith('loc:')) {
+      const locId = id.slice('loc:'.length)
+      const loc = locations.find((l) => l.id === locId) ?? null
+      setActiveDragLoc(loc)
+    }
   }
 
   const handleDragEnd = async (e: DragEndEvent) => {
-    setDraggingId(null)
+    setActiveDragLoc(null)
     const { active, over } = e
     if (!over || active.id === over.id) return
 
@@ -238,6 +243,7 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
         collisionDetection={pointerWithin}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onDragCancel={() => setActiveDragLoc(null)}
       >
         <BentoGrid>
           {cells.map((c) =>
@@ -248,6 +254,13 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
             ),
           )}
         </BentoGrid>
+        <DragOverlay dropAnimation={null}>
+          {activeDragLoc ? (
+            <div className="si-drag-overlay">
+              <LocationTile location={activeDragLoc as never} />
+            </div>
+          ) : null}
+        </DragOverlay>
       </DndContext>
       <nav className="si-bento-nav" aria-label="Spaces pages">
         <button
@@ -270,7 +283,9 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
           ›
         </button>
       </nav>
-      {draggingId && <div className="si-spaces-hint">Drop on a tile to swap, or on an empty slot to move.</div>}
+      {activeDragLoc && (
+        <div className="si-spaces-hint">Drop on a tile to swap, or on an empty slot to move.</div>
+      )}
     </div>
   )
 }

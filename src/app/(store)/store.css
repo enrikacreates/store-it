@@ -955,6 +955,17 @@ button.si-cat-chip:hover {
   border-top: 1px solid rgba(26, 26, 26, 0.08);
 }
 
+/* ---- Drag overlay (preview while dragging) ---- */
+.si-drag-overlay {
+  width: 240px;
+  background: var(--card);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
+  cursor: grabbing;
+  transform: rotate(-1.5deg);
+}
+
 /* ---- Spaces drag handle ---- */
 .si-drag-handle {
   position: absolute;
