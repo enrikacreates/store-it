@@ -655,17 +655,15 @@ button.si-cat-chip:hover {
   border-bottom: 0.5px solid rgba(26, 26, 26, 0.08);
 }
 .si-tile-ap {
-  position: absolute;
-  top: 8px;
-  right: 8px;
+  display: inline-block;
+  align-self: flex-start;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  padding: 4px 9px;
+  padding: 3px 9px;
   border-radius: 999px;
   white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  pointer-events: none;
+  margin-top: 4px;
 }
 .si-tile-image img {
   width: 100%;

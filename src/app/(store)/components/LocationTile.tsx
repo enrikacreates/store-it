@@ -21,6 +21,10 @@ export function LocationTile({ location }: { location: Location }) {
     <Link className="si-tile" href={`/l/${location.id}`} aria-label={`Open ${location.name}`}>
       <div className="si-tile-image">
         {initialImgUrl ? <img src={initialImgUrl} alt="" /> : <div className="si-tile-placeholder" aria-hidden>📍</div>}
+      </div>
+      <div className="si-tile-text">
+        <div className="si-tile-name">{location.name}</div>
+        {location.primarilyFor && <div className="si-tile-subtitle">{location.primarilyFor}</div>}
         {ap && (
           <span
             className="si-tile-ap"
@@ -29,10 +33,6 @@ export function LocationTile({ location }: { location: Location }) {
             {ap.label}
           </span>
         )}
-      </div>
-      <div className="si-tile-text">
-        <div className="si-tile-name">{location.name}</div>
-        {location.primarilyFor && <div className="si-tile-subtitle">{location.primarilyFor}</div>}
       </div>
     </Link>
   )
