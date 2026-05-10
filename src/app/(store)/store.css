@@ -986,6 +986,11 @@ button.si-cat-chip:hover {
 .si-tile-input:focus {
   box-shadow: 0 0 0 2px var(--orange);
 }
+.si-tile-input--theme {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-style: italic;
+  font-size: 13px;
+}
 .si-tile-error {
   font-size: 12px;
   color: #B23B1F;

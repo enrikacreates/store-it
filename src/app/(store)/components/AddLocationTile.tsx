@@ -7,6 +7,7 @@ export function AddLocationTile({ parentId, targetSlot }: { parentId?: string; t
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
+  const [theme, setTheme] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -19,6 +20,7 @@ export function AddLocationTile({ parentId, targetSlot }: { parentId?: string; t
       const body: Record<string, unknown> = { name: name.trim() }
       if (parentId) body.parent = parentId
       if (typeof targetSlot === 'number') body.sortOrder = targetSlot
+      if (theme.trim()) body.primarilyFor = theme.trim()
       const res = await fetch('/api/locations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -31,6 +33,7 @@ export function AddLocationTile({ parentId, targetSlot }: { parentId?: string; t
         return
       }
       setName('')
+      setTheme('')
       setOpen(false)
       setSaving(false)
       router.refresh()
@@ -61,13 +64,21 @@ export function AddLocationTile({ parentId, targetSlot }: { parentId?: string; t
         required
         maxLength={80}
       />
+      <input
+        className="si-tile-input si-tile-input--theme"
+        type="text"
+        placeholder="Theme (optional)"
+        value={theme}
+        onChange={(e) => setTheme(e.target.value)}
+        maxLength={120}
+      />
       {error && <div className="si-tile-error">{error}</div>}
       <div className="si-tile-actions">
-        <button type="button" className="si-tile-cancel" onClick={() => { setOpen(false); setName(''); setError('') }}>
+        <button type="button" className="si-tile-cancel" onClick={() => { setOpen(false); setName(''); setTheme(''); setError('') }}>
           Cancel
         </button>
         <button type="submit" className="si-tile-save" disabled={saving || !name.trim()}>
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? '…' : 'Save'}
         </button>
       </div>
     </form>
