@@ -541,17 +541,59 @@ button.si-cat-chip:hover {
   background: var(--card);
   padding: 14px;
   gap: 10px;
-  min-height: 160px;
-  justify-content: center;
+  min-height: 200px;
+  justify-content: flex-start;
 }
 .si-tile--editing .si-field {
   font-size: 14px;
+}
+.si-tile-edit-photo {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
+  background: var(--bg);
+  border: none;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-input);
+  transition: box-shadow 0.15s ease;
+  padding: 0;
+}
+.si-tile-edit-photo:hover {
+  box-shadow: 0 0 0 2px var(--orange), var(--shadow-input);
+}
+.si-tile-edit-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.si-tile-edit-photo-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 8px 12px;
+  text-align: center;
+}
+.si-tile-edit-photo-loading {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
 }
 .si-tile-edit-actions {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+  margin-top: auto;
 }
 .si-tile-input {
   font-family: inherit;
