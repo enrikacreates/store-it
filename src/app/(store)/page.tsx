@@ -2,17 +2,13 @@ import { redirect } from 'next/navigation'
 import { headers as nextHeaders } from 'next/headers'
 import { getPayload } from 'payload'
 import config from '@payload-config'
-import { BentoGrid } from './components/BentoGrid'
-import { LocationTile } from './components/LocationTile'
-import { AddLocationTile } from './components/AddLocationTile'
+import { SpacesBento } from './components/SpacesBento'
 import { ItemQuickAdd } from './components/ItemQuickAdd'
 import { ItemRow } from './components/ItemRow'
 import { TagStrip } from './components/TagStrip'
 import { pickRandomTiles } from './heroRows'
 
 export const dynamic = 'force-dynamic'
-
-const MIN_BENTO_CELLS = 6
 
 export default async function HomePage() {
   const payload = await getPayload({ config })
@@ -59,9 +55,6 @@ export default async function HomePage() {
 
   const heroTiles = pickRandomTiles(4)
 
-  // Always show at least 6 cells in the bento. Trailing cells are "Add a space" placeholders.
-  const placeholderCount = Math.max(1, MIN_BENTO_CELLS - topLocations.length)
-
   return (
     <main className="si-page">
       <div className="si-dash-strip" aria-hidden>
@@ -89,14 +82,7 @@ export default async function HomePage() {
 
       <section className="si-section">
         <h2 className="si-section-title">Spaces</h2>
-        <BentoGrid>
-          {topLocations.map((loc) => (
-            <LocationTile key={loc.id} location={loc as never} />
-          ))}
-          {Array.from({ length: placeholderCount }).map((_, i) => (
-            <AddLocationTile key={`add-${i}`} />
-          ))}
-        </BentoGrid>
+        <SpacesBento locations={topLocations as never[]} />
       </section>
 
       <section className="si-section">
