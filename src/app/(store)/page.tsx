@@ -69,22 +69,22 @@ export default async function HomePage() {
         <p className="si-lede">A simple home organization app for creatives.</p>
       </header>
 
-      <section className="si-section">
-        <h2 className="si-section-title">Categories</h2>
-        <TagStrip tags={tags} />
-      </section>
-
-      <section className="si-section">
-        <h2 className="si-section-title">Spaces</h2>
-        <SpacesBento locations={topLocations as never[]} />
-      </section>
-
       <ItemsBoard
         initialItems={allItems as never[]}
         locations={allLocations}
         categories={categories}
         tags={tags}
-      />
+      >
+        <section className="si-section">
+          <h2 className="si-section-title">Categories</h2>
+          <TagStrip tags={tags} />
+        </section>
+
+        <section className="si-section">
+          <h2 className="si-section-title">Spaces</h2>
+          <SpacesBento locations={topLocations as never[]} />
+        </section>
+      </ItemsBoard>
     </main>
   )
 }

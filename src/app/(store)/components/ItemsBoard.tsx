@@ -26,9 +26,11 @@ type Props = {
   locations: Loc[]
   categories: Cat[]
   tags: Tag[]
+  /** Content to render between the search bar (top) and the items list (bottom) */
+  children?: React.ReactNode
 }
 
-export function ItemsBoard({ initialItems, locations, categories, tags }: Props) {
+export function ItemsBoard({ initialItems, locations, categories, tags, children }: Props) {
   const router = useRouter()
   const [items, setItems] = useState<Item[]>(initialItems)
 
@@ -130,13 +132,18 @@ export function ItemsBoard({ initialItems, locations, categories, tags }: Props)
 
   return (
     <>
-      <SearchAdd
-        items={searchItems}
-        locations={locations}
-        categories={categories}
-        onCreate={handleCreateItem}
-      />
-      <section className="si-section" style={{ marginTop: 32 }}>
+      <section className="si-section">
+        <SearchAdd
+          items={searchItems}
+          locations={locations}
+          categories={categories}
+          onCreate={handleCreateItem}
+        />
+      </section>
+
+      {children}
+
+      <section className="si-section">
         <h2 className="si-section-title">Unassigned items</h2>
         {unassigned.length > 0 ? (
           <ul className="si-item-list">
