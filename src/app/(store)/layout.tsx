@@ -1,4 +1,5 @@
 import React from 'react'
+import Link from 'next/link'
 import './store.css'
 
 export const metadata = {
@@ -13,7 +14,12 @@ export default function StoreLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <Link href="/" className="si-brand" aria-label="Store It — go to dashboard">
+          Store <span className="si-brand-dot" aria-hidden>·</span> It
+        </Link>
+        {children}
+      </body>
     </html>
   )
 }

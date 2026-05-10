@@ -24,6 +24,47 @@ body {
 
 a { color: inherit; }
 
+/* ---- Persistent app brand mark ---- */
+.si-brand {
+  position: fixed;
+  top: 18px;
+  left: 22px;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  background: var(--card);
+  color: var(--text);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  text-decoration: none;
+  border-radius: 999px;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.si-brand:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card-hover);
+}
+.si-brand-dot {
+  color: var(--orange);
+  font-weight: 900;
+  font-size: 14px;
+  line-height: 0.6;
+}
+@media (max-width: 480px) {
+  .si-brand {
+    top: 12px;
+    left: 12px;
+    padding: 7px 12px;
+    font-size: 10px;
+  }
+}
+
 /* ---- Page shell ---- */
 .si-page {
   max-width: 880px;
