@@ -49,7 +49,7 @@ function TagChip({ tag }: { tag: Tag }) {
   }
 
   const handleDelete = async () => {
-    if (!confirm(`Delete tag "${tag.name}"?`)) return
+    if (!confirm(`Delete category "${tag.name}"?`)) return
     setSaving(true)
     try {
       const res = await fetch(`/api/tags/${tag.id}`, { method: 'DELETE' })
@@ -138,7 +138,7 @@ function AddTagChip() {
   if (!adding) {
     return (
       <button type="button" className="si-cat-chip si-cat-chip--add" onClick={() => setAdding(true)}>
-        + Add tag
+        + Add category
       </button>
     )
   }
@@ -148,7 +148,7 @@ function AddTagChip() {
       <input
         className="si-cat-input"
         type="text"
-        placeholder="Tag name (e.g. art supplies)"
+        placeholder="Category name (e.g. art supplies)"
         value={name}
         onChange={(e) => setName(e.target.value)}
         autoFocus
