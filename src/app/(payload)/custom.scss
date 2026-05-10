@@ -1,0 +1,22 @@
+/*
+ * Payload admin theme — minimal Store It tinting.
+ * Cream bg, black/white cards, orange CTA accent.
+ */
+
+:root {
+  --brand-bg: #FAF6F0;
+  --brand-bg-dark: #F0EBDF;
+  --brand-text: #1A1A1A;
+  --brand-card: #FFFFFF;
+  --brand-orange: #FA9B64;
+  --brand-green: #79C9B1;
+  --brand-pink: #FDC4C5;
+
+  --theme-bg: var(--brand-bg);
+  --theme-text: var(--brand-text);
+  --theme-input-bg: #FFFFFF;
+}
+
+html { background: var(--theme-bg); color: var(--theme-text); }
+body { margin: 0; }
+* { box-sizing: border-box; }

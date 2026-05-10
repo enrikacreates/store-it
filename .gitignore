@@ -1,0 +1,49 @@
+# dependencies
+node_modules
+.pnp
+.pnp.js
+
+# next.js
+.next/
+out/
+
+# production
+build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# env
+.env
+.env*.local
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# payload
+media/
+src/app/(payload)/admin/importMap.js
+
+# IDE
+.idea/
+.vscode/
+.claude/
+
+# vercel
+.vercel
+
+# hero source images (the cropped row banners are committed; sources are local-only)
+public/signup-hero.png
+public/signup-hero-alt.png
+public/signup-hero-source-*.png
+public/icons/
+
+# generated payload import map (regenerated on each build)
+src/payload-types.ts
