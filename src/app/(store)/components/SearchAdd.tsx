@@ -7,10 +7,14 @@ type Item = { id: string; name: string; location?: { id: string; name: string } 
 type Loc = { id: string; name: string }
 type Cat = { id: string; name: string }
 
+type CreateResult = { ok: true } | { ok: false; error: string }
+
 type Props = {
   items: Item[]
   locations: Loc[]
   categories: Cat[]
+  /** Optional optimistic create handler; falls back to direct POST + refresh if absent. */
+  onCreate?: (name: string) => Promise<CreateResult>
 }
 
 type Row =
@@ -19,7 +23,7 @@ type Row =
   | { kind: 'category'; cat: Cat }
   | { kind: 'create' }
 
-export function SearchAdd({ items, locations, categories }: Props) {
+export function SearchAdd({ items, locations, categories, onCreate }: Props) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -74,11 +78,28 @@ export function SearchAdd({ items, locations, categories }: Props) {
     if (!q) return
     setSaving(true)
     setError('')
+    const name = query.trim()
+
+    if (onCreate) {
+      // Optimistic path: clear input first, parent handles state update
+      setQuery('')
+      setOpen(false)
+      setSaving(false)
+      inputRef.current?.focus()
+      const result = await onCreate(name)
+      if (!result.ok) {
+        setError(result.error)
+        setQuery(name) // restore input so user can retry
+      }
+      return
+    }
+
+    // Fallback: direct POST + refresh
     try {
       const res = await fetch('/api/items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: query.trim() }),
+        body: JSON.stringify({ name }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))

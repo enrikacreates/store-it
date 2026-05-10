@@ -20,14 +20,20 @@ type Item = {
   accessPattern?: AccessPattern | string | null
 }
 
+type CallResult = { ok: true } | { ok: false; error: string }
+
 type Props = {
   item: Item
   locations: Loc[]
   categories: Cat[]
   tags: Tag[]
+  /** Optional optimistic update handler */
+  onUpdate?: (id: string, updates: Partial<Item>) => Promise<CallResult>
+  /** Optional optimistic delete handler */
+  onDelete?: (id: string) => Promise<CallResult>
 }
 
-export function ItemRow({ item, locations, categories, tags }: Props) {
+export function ItemRow({ item, locations, categories, tags, onUpdate, onDelete }: Props) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
@@ -98,20 +104,35 @@ export function ItemRow({ item, locations, categories, tags }: Props) {
     if (!name.trim()) return
     setSaving(true)
     setError('')
-    try {
-      const body = {
-        name: name.trim(),
-        location: locId || null,
-        category: catId || null,
-        tags: tagIds,
-        description: description.trim() || null,
-        image: imageId || null,
-        accessPattern: accessPattern || null,
+    const updates = {
+      name: name.trim(),
+      location: locId || null,
+      category: catId || null,
+      tags: tagIds,
+      description: description.trim() || null,
+      image: imageId || null,
+      accessPattern: accessPattern || null,
+    } as Partial<Item>
+
+    // Close UI immediately if optimistic handler is available
+    if (onUpdate) {
+      setEditing(false)
+      setShowDetails(false)
+      setSaving(false)
+      const result = await onUpdate(item.id, updates)
+      if (!result.ok) {
+        setError(result.error)
+        setEditing(true)
       }
+      return
+    }
+
+    // Fallback path
+    try {
       const res = await fetch(`/api/items/${item.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify(updates),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
@@ -132,6 +153,16 @@ export function ItemRow({ item, locations, categories, tags }: Props) {
   const handleDelete = async () => {
     if (!confirm(`Delete "${item.name}"?`)) return
     setSaving(true)
+
+    if (onDelete) {
+      const result = await onDelete(item.id)
+      if (!result.ok) {
+        setError(result.error)
+        setSaving(false)
+      }
+      return
+    }
+
     try {
       const res = await fetch(`/api/items/${item.id}`, { method: 'DELETE' })
       if (!res.ok) {

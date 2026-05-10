@@ -1,22 +1,53 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 type Tag = { id: string; name: string }
 
-export function TagStrip({ tags }: { tags: Tag[] }) {
+export function TagStrip({ tags: initialTags }: { tags: Tag[] }) {
+  const [tags, setTags] = useState<Tag[]>(initialTags)
+
+  // Reconcile from server
+  useEffect(() => {
+    setTags(initialTags)
+  }, [initialTags])
+
+  const handleUpdate = (id: string, name: string) => {
+    setTags((prev) => prev.map((t) => (t.id === id ? { ...t, name } : t)))
+  }
+  const handleDelete = (id: string) => {
+    setTags((prev) => prev.filter((t) => t.id !== id))
+  }
+  const handleAdd = (tag: Tag) => {
+    setTags((prev) => [...prev, tag])
+  }
+  const handleReplace = (tempId: string, real: Tag) => {
+    setTags((prev) => prev.map((t) => (t.id === tempId ? real : t)))
+  }
+  const handleRevertAdd = (tempId: string) => {
+    setTags((prev) => prev.filter((t) => t.id !== tempId))
+  }
+
   return (
     <div className="si-cat-strip">
       {tags.map((t) => (
-        <TagChip key={t.id} tag={t} />
+        <TagChip key={t.id} tag={t} onUpdate={handleUpdate} onDelete={handleDelete} />
       ))}
-      <AddTagChip />
+      <AddTagChip onAdd={handleAdd} onReplace={handleReplace} onRevert={handleRevertAdd} />
     </div>
   )
 }
 
-function TagChip({ tag }: { tag: Tag }) {
+function TagChip({
+  tag,
+  onUpdate,
+  onDelete,
+}: {
+  tag: Tag
+  onUpdate: (id: string, name: string) => void
+  onDelete: (id: string) => void
+}) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(tag.name)
@@ -24,44 +55,50 @@ function TagChip({ tag }: { tag: Tag }) {
   const [error, setError] = useState('')
 
   const handleSave = async () => {
-    if (!name.trim()) return
-    setSaving(true)
+    const trimmed = name.trim()
+    if (!trimmed) return
     setError('')
+    setEditing(false)
+    const before = tag.name
+    onUpdate(tag.id, trimmed) // optimistic
+    setSaving(true)
     try {
       const res = await fetch(`/api/tags/${tag.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify({ name: trimmed }),
       })
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        setError(data?.errors?.[0]?.message || 'Could not save.')
-        setSaving(false)
-        return
+        onUpdate(tag.id, before) // revert
+        setError('Could not save.')
+        setEditing(true)
+      } else {
+        router.refresh()
       }
-      setEditing(false)
-      setSaving(false)
-      router.refresh()
     } catch {
+      onUpdate(tag.id, before)
       setError('Something went wrong.')
+      setEditing(true)
+    } finally {
       setSaving(false)
     }
   }
 
   const handleDelete = async () => {
     if (!confirm(`Delete category "${tag.name}"?`)) return
+    onDelete(tag.id) // optimistic
     setSaving(true)
     try {
       const res = await fetch(`/api/tags/${tag.id}`, { method: 'DELETE' })
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        setError(data?.errors?.[0]?.message || 'Could not delete.')
-        setSaving(false)
-        return
+        // Re-add for clarity (caller would need to know — for simplicity just refresh)
+        router.refresh()
+      } else {
+        router.refresh()
       }
-      router.refresh()
     } catch {
-      setError('Something went wrong.')
+      router.refresh()
+    } finally {
       setSaving(false)
     }
   }
@@ -101,7 +138,15 @@ function TagChip({ tag }: { tag: Tag }) {
   )
 }
 
-function AddTagChip() {
+function AddTagChip({
+  onAdd,
+  onReplace,
+  onRevert,
+}: {
+  onAdd: (tag: Tag) => void
+  onReplace: (tempId: string, real: Tag) => void
+  onRevert: (tempId: string) => void
+}) {
   const router = useRouter()
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
@@ -110,27 +155,41 @@ function AddTagChip() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim()) return
-    setSaving(true)
+    const trimmed = name.trim()
+    if (!trimmed) return
     setError('')
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    onAdd({ id: tempId, name: trimmed })
+    setName('')
+    setAdding(false)
+    setSaving(true)
     try {
       const res = await fetch('/api/tags', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify({ name: trimmed }),
       })
       if (!res.ok) {
+        onRevert(tempId)
         const data = await res.json().catch(() => ({}))
         setError(data?.errors?.[0]?.message || 'Could not save.')
+        setAdding(true)
+        setName(trimmed)
         setSaving(false)
         return
       }
-      setName('')
-      setAdding(false)
-      setSaving(false)
+      const data = await res.json()
+      const real = data?.doc
+      if (real?.id) {
+        onReplace(tempId, { id: String(real.id), name: real.name })
+      }
       router.refresh()
     } catch {
+      onRevert(tempId)
       setError('Something went wrong.')
+      setAdding(true)
+      setName(trimmed)
+    } finally {
       setSaving(false)
     }
   }
