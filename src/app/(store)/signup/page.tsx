@@ -1,11 +1,10 @@
 import React from 'react'
 import { SignUpForm } from './SignUpForm'
 import { HeroRotator } from './HeroRotator'
+import { HERO_ROWS } from '../heroRows'
 
 export const metadata = { title: 'Create account — Store It' }
 export const dynamic = 'force-dynamic'
-
-const HERO_ROWS = [1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 17, 18]
 
 export default function SignUpPage() {
   const startIdx = Math.floor(Math.random() * HERO_ROWS.length)
