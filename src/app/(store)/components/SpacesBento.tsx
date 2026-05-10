@@ -81,10 +81,16 @@ function SortableCell({ cell }: { cell: CellInfo }) {
   )
 }
 
-export function SpacesBento({ locations }: { locations: Location[] }) {
+export function SpacesBento({ locations: propLocations }: { locations: Location[] }) {
   const router = useRouter()
   const [pageIdx, setPageIdx] = useState(0)
   const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [locations, setLocations] = useState<Location[]>(propLocations)
+
+  // Sync from server when props change (after router.refresh()).
+  useEffect(() => {
+    setLocations(propLocations)
+  }, [propLocations])
 
   // Build slot map keyed by sortOrder.
   const slotMap = new Map<number, Location>()
@@ -135,7 +141,6 @@ export function SpacesBento({ locations }: { locations: Location[] }) {
     const activeId = String(active.id)
     const overId = String(over.id)
 
-    // Active must be a real location tile.
     if (!activeId.startsWith('loc:')) return
     const activeLocId = activeId.slice('loc:'.length)
     const activeLoc = locations.find((l) => l.id === activeLocId)
@@ -160,34 +165,37 @@ export function SpacesBento({ locations }: { locations: Location[] }) {
 
     if (targetSlot === oldSlot) return
 
-    // Two-phase write to avoid unique-slot collisions:
-    // 1. Park displaced (if any) at a temporary slot that's clearly out of band.
-    // 2. Move active to target slot.
-    // 3. Move displaced from parking to active's old slot.
-    const TEMP_SLOT = -1
+    // 1. Optimistic local update — the tile sticks in place visually.
+    setLocations((prev) =>
+      prev.map((l) => {
+        if (l.id === activeLoc.id) return { ...l, sortOrder: targetSlot }
+        if (displacedLoc && l.id === displacedLoc.id) return { ...l, sortOrder: oldSlot }
+        return l
+      }),
+    )
 
+    // 2. Persist to server in parallel; refresh when done so server is source of truth.
     try {
-      if (displacedLoc) {
-        await fetch(`/api/locations/${displacedLoc.id}`, {
+      const calls: Promise<Response>[] = [
+        fetch(`/api/locations/${activeLoc.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sortOrder: TEMP_SLOT }),
-        })
-      }
-      await fetch(`/api/locations/${activeLoc.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sortOrder: targetSlot }),
-      })
+          body: JSON.stringify({ sortOrder: targetSlot }),
+        }),
+      ]
       if (displacedLoc) {
-        await fetch(`/api/locations/${displacedLoc.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sortOrder: oldSlot }),
-        })
+        calls.push(
+          fetch(`/api/locations/${displacedLoc.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sortOrder: oldSlot }),
+          }),
+        )
       }
+      await Promise.all(calls)
       router.refresh()
     } catch {
+      // Revert by resyncing from server.
       router.refresh()
     }
   }
