@@ -41,18 +41,37 @@ function cellId(c: CellInfo): string {
 
 function SortableCell({ cell }: { cell: CellInfo }) {
   const id = cellId(cell)
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+    useSortable({ id })
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.4 : 1,
     zIndex: isDragging ? 10 : 'auto',
-    cursor: cell.kind === 'loc' ? 'grab' : undefined,
+    position: 'relative',
   }
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div ref={setNodeRef} style={style} {...attributes}>
+      {cell.kind === 'loc' && (
+        <button
+          ref={setActivatorNodeRef}
+          {...listeners}
+          type="button"
+          className="si-drag-handle"
+          aria-label="Drag to reorder"
+        >
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden>
+            <circle cx="5" cy="3" r="1.3" />
+            <circle cx="11" cy="3" r="1.3" />
+            <circle cx="5" cy="8" r="1.3" />
+            <circle cx="11" cy="8" r="1.3" />
+            <circle cx="5" cy="13" r="1.3" />
+            <circle cx="11" cy="13" r="1.3" />
+          </svg>
+        </button>
+      )}
       {cell.kind === 'loc' ? (
         <LocationTile location={cell.loc as never} />
       ) : (
