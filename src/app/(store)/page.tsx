@@ -11,6 +11,8 @@ import { pickRandomTiles } from './heroRows'
 
 export const dynamic = 'force-dynamic'
 
+const MIN_BENTO_CELLS = 6
+
 export default async function HomePage() {
   const payload = await getPayload({ config })
   const headers = await nextHeaders()
@@ -20,7 +22,7 @@ export default async function HomePage() {
     redirect('/signup')
   }
 
-  const [topLocationsRes, allLocationsRes, itemsRes, categoriesRes, tagsRes] = await Promise.all([
+  const [topLocationsRes, allLocationsRes, unassignedRes, categoriesRes, tagsRes] = await Promise.all([
     payload.find({
       collection: 'locations',
       where: { parent: { exists: false } },
@@ -38,6 +40,7 @@ export default async function HomePage() {
     }),
     payload.find({
       collection: 'items',
+      where: { location: { exists: false } },
       sort: '-createdAt',
       limit: 200,
       depth: 1,
@@ -47,14 +50,16 @@ export default async function HomePage() {
     payload.find({ collection: 'tags', sort: 'name', limit: 500, depth: 0, user }),
   ])
 
-  const locations = topLocationsRes.docs
+  const topLocations = topLocationsRes.docs
   const allLocations = allLocationsRes.docs.map((l) => ({ id: String(l.id), name: l.name }))
-  const items = itemsRes.docs
+  const unassignedItems = unassignedRes.docs
   const categories = categoriesRes.docs.map((c) => ({ id: String(c.id), name: c.name, color: (c as { color?: string | null }).color ?? null }))
   const tags = tagsRes.docs.map((t) => ({ id: String(t.id), name: t.name }))
-  const hasItems = items.length > 0
-  const hasLocations = locations.length > 0
+
   const heroTiles = pickRandomTiles(4)
+
+  // Always show at least 6 cells in the bento. Trailing cells are "Add a space" placeholders.
+  const placeholderCount = Math.max(1, MIN_BENTO_CELLS - topLocations.length)
 
   return (
     <main className="si-page">
@@ -73,11 +78,26 @@ export default async function HomePage() {
       </header>
 
       <section className="si-section">
-        <h2 className="si-section-title">Items</h2>
         <ItemQuickAdd />
-        {hasItems ? (
+      </section>
+
+      <section className="si-section">
+        <h2 className="si-section-title">Spaces</h2>
+        <BentoGrid>
+          {topLocations.map((loc) => (
+            <LocationTile key={loc.id} location={loc as never} />
+          ))}
+          {Array.from({ length: placeholderCount }).map((_, i) => (
+            <AddLocationTile key={`add-${i}`} />
+          ))}
+        </BentoGrid>
+      </section>
+
+      <section className="si-section">
+        <h2 className="si-section-title">Unassigned items</h2>
+        {unassignedItems.length > 0 ? (
           <ul className="si-item-list">
-            {items.map((it) => (
+            {unassignedItems.map((it) => (
               <ItemRow
                 key={it.id}
                 item={it as never}
@@ -88,26 +108,7 @@ export default async function HomePage() {
             ))}
           </ul>
         ) : (
-          <p className="si-section-empty">Brain-dump anything. Sort it later.</p>
-        )}
-      </section>
-
-      <section className="si-section">
-        <h2 className="si-section-title">Locations</h2>
-        {hasLocations ? (
-          <BentoGrid>
-            {locations.map((loc) => (
-              <LocationTile key={loc.id} location={loc as never} />
-            ))}
-            <AddLocationTile />
-          </BentoGrid>
-        ) : (
-          <div className="si-section-empty-card">
-            <p>No locations yet. You can add items first and decide where to put them later.</p>
-            <BentoGrid>
-              <AddLocationTile />
-            </BentoGrid>
-          </div>
+          <p className="si-section-empty">All items have a home. Add more above to keep brain-dumping.</p>
         )}
       </section>
     </main>

@@ -43,7 +43,7 @@ export function AddLocationTile({ parentId }: { parentId?: string }) {
     return (
       <button className="si-tile si-tile--add" onClick={() => setOpen(true)} type="button">
         <div className="si-tile-add-icon" aria-hidden>+</div>
-        <div className="si-tile-name">Add location</div>
+        <div className="si-tile-name">Add a space</div>
       </button>
     )
   }
