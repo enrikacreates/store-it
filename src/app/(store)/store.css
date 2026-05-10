@@ -533,6 +533,26 @@ button.si-cat-chip:hover {
   min-height: 160px;
   justify-content: center;
 }
+
+/* ---- Location tile in edit mode ---- */
+.si-tile--editing {
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  padding: 14px;
+  gap: 10px;
+  min-height: 160px;
+  justify-content: center;
+}
+.si-tile--editing .si-field {
+  font-size: 14px;
+}
+.si-tile-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
 .si-tile-input {
   font-family: inherit;
   font-size: 14px;

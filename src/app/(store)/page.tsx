@@ -27,7 +27,7 @@ export default async function HomePage() {
     payload.find({
       collection: 'locations',
       where: { parent: { exists: false } },
-      sort: 'sortOrder',
+      sort: 'createdAt',
       limit: 100,
       depth: 1,
       user,
