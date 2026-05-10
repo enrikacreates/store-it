@@ -2,6 +2,7 @@
 
 import React, { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ACCESS_PATTERNS } from '../accessPatterns'
 
 type Media = { id: string; url?: string; sizes?: { card?: { url?: string }; thumbnail?: { url?: string } } }
 
