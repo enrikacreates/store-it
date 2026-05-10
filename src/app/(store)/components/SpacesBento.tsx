@@ -50,6 +50,8 @@ function SortableCell({ cell }: { cell: CellInfo }) {
     opacity: isDragging ? 0.4 : 1,
     zIndex: isDragging ? 10 : 'auto',
     position: 'relative',
+    height: '100%',
+    display: 'flex',
   }
 
   return (
