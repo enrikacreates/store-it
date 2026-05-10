@@ -33,7 +33,9 @@ type Location = {
 }
 
 type Props = {
-  location: Location
+  location: Location | null
+  /** When provided, the form is in create mode and the new space gets this sortOrder. */
+  creatingSlot?: number
   items: Item[]
   locations: Loc[]
   tags: Tag[]
@@ -45,34 +47,36 @@ function mediaUrl(m: Media | string | null | undefined, size: 'card' | 'hero' | 
   return m.sizes?.[size]?.url || m.sizes?.card?.url || m.sizes?.thumbnail?.url || m.url || null
 }
 
-export function LocationDetail({ location, items, locations, tags, categories }: Props) {
+export function LocationDetail({ location, creatingSlot, items, locations, tags, categories }: Props) {
   const router = useRouter()
+  const isCreating = location === null
   const leadInput = useRef<HTMLInputElement>(null)
   const galleryInput = useRef<HTMLInputElement>(null)
 
-  const [editing, setEditing] = useState(false)
+  // In create mode, always editing.
+  const [editing, setEditing] = useState(isCreating)
 
-  // Editable state
-  const [name, setName] = useState(location.name)
-  const [primarilyFor, setPrimarilyFor] = useState(location.primarilyFor ?? '')
-  const [accessPattern, setAccessPattern] = useState<string>(location.accessPattern ?? '')
-  const [leadImageId, setLeadImageId] = useState<string | null>(
-    typeof location.image === 'object' && location.image ? (location.image.id ?? null) : null,
-  )
-  const [leadImageUrl, setLeadImageUrl] = useState<string | null>(mediaUrl(location.image, 'hero'))
-  const [gallery, setGallery] = useState<GalleryEntry[]>(location.gallery ?? [])
+  const initialLeadId = location && typeof location.image === 'object' && location.image ? (location.image.id ?? null) : null
+  const initialLeadUrl = mediaUrl(location?.image, 'hero')
+
+  const [name, setName] = useState(location?.name ?? '')
+  const [primarilyFor, setPrimarilyFor] = useState(location?.primarilyFor ?? '')
+  const [accessPattern, setAccessPattern] = useState<string>(location?.accessPattern ?? '')
+  const [leadImageId, setLeadImageId] = useState<string | null>(initialLeadId)
+  const [leadImageUrl, setLeadImageUrl] = useState<string | null>(initialLeadUrl)
+  const [gallery, setGallery] = useState<GalleryEntry[]>(location?.gallery ?? [])
   const [uploadingLead, setUploadingLead] = useState(false)
   const [uploadingGallery, setUploadingGallery] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const reset = () => {
-    setName(location.name)
-    setPrimarilyFor(location.primarilyFor ?? '')
-    setAccessPattern(location.accessPattern ?? '')
-    setLeadImageId(typeof location.image === 'object' && location.image ? (location.image.id ?? null) : null)
-    setLeadImageUrl(mediaUrl(location.image, 'hero'))
-    setGallery(location.gallery ?? [])
+    setName(location?.name ?? '')
+    setPrimarilyFor(location?.primarilyFor ?? '')
+    setAccessPattern(location?.accessPattern ?? '')
+    setLeadImageId(initialLeadId)
+    setLeadImageUrl(initialLeadUrl)
+    setGallery(location?.gallery ?? [])
     setError('')
   }
 
@@ -142,16 +146,24 @@ export function LocationDetail({ location, items, locations, tags, categories }:
         image: typeof g.image === 'object' ? (g.image as Media).id : g.image,
         caption: g.caption || '',
       }))
-      const res = await fetch(`/api/locations/${location.id}`, {
-        method: 'PATCH',
+
+      const body: Record<string, unknown> = {
+        name: name.trim(),
+        primarilyFor: primarilyFor.trim() || null,
+        image: leadImageId || null,
+        accessPattern: accessPattern || null,
+        gallery: galleryPayload,
+      }
+      if (isCreating && typeof creatingSlot === 'number') {
+        body.sortOrder = creatingSlot
+      }
+
+      const url = isCreating ? '/api/locations' : `/api/locations/${location!.id}`
+      const method = isCreating ? 'POST' : 'PATCH'
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          primarilyFor: primarilyFor.trim() || null,
-          image: leadImageId || null,
-          accessPattern: accessPattern || null,
-          gallery: galleryPayload,
-        }),
+        body: JSON.stringify(body),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
@@ -159,9 +171,15 @@ export function LocationDetail({ location, items, locations, tags, categories }:
         setSaving(false)
         return
       }
-      setEditing(false)
+      const data = await res.json()
+      const newId = isCreating ? (data?.doc?.id ?? data?.id) : null
       setSaving(false)
-      router.refresh()
+      if (isCreating && newId) {
+        router.push(`/l/${newId}`)
+      } else {
+        setEditing(false)
+        router.refresh()
+      }
     } catch {
       setError('Something went wrong.')
       setSaving(false)
@@ -169,6 +187,7 @@ export function LocationDetail({ location, items, locations, tags, categories }:
   }
 
   const handleDelete = async () => {
+    if (!location) return
     if (!confirm(`Delete "${location.name}"? This will also delete its gallery and unassign its items.`)) return
     setSaving(true)
     try {
@@ -185,7 +204,15 @@ export function LocationDetail({ location, items, locations, tags, categories }:
     }
   }
 
-  // Display
+  const handleCancel = () => {
+    if (isCreating) {
+      router.push('/')
+      return
+    }
+    reset()
+    setEditing(false)
+  }
+
   return (
     <div className="si-detail">
       <nav className="si-detail-crumb">
@@ -229,6 +256,7 @@ export function LocationDetail({ location, items, locations, tags, categories }:
               onChange={(e) => setName(e.target.value)}
               maxLength={80}
               placeholder="Space name"
+              autoFocus={isCreating}
             />
             <input
               className="si-field si-detail-theme"
@@ -256,11 +284,11 @@ export function LocationDetail({ location, items, locations, tags, categories }:
           </>
         ) : (
           <>
-            <h1 className="si-detail-title">{location.name}</h1>
-            {location.primarilyFor && <p className="si-detail-theme-display">{location.primarilyFor}</p>}
-            {location.accessPattern && (
+            <h1 className="si-detail-title">{location!.name}</h1>
+            {location!.primarilyFor && <p className="si-detail-theme-display">{location!.primarilyFor}</p>}
+            {location!.accessPattern && (
               <p className="si-detail-access">
-                {ACCESS_PATTERNS.find((p) => p.value === location.accessPattern)?.label}
+                {ACCESS_PATTERNS.find((p) => p.value === location!.accessPattern)?.label}
               </p>
             )}
           </>
@@ -325,34 +353,38 @@ export function LocationDetail({ location, items, locations, tags, categories }:
         />
       </section>
 
-      {/* Items */}
-      <section className="si-section">
-        <h2 className="si-section-title">Items in this space ({items.length})</h2>
-        {items.length > 0 ? (
-          <ul className="si-item-list">
-            {items.map((it) => (
-              <ItemRow key={it.id} item={it as never} locations={locations} categories={categories} tags={tags} />
-            ))}
-          </ul>
-        ) : (
-          <p className="si-section-empty">No items here yet. Assign some on the dashboard.</p>
-        )}
-      </section>
+      {/* Items (only for existing spaces) */}
+      {!isCreating && (
+        <section className="si-section">
+          <h2 className="si-section-title">Items in this space ({items.length})</h2>
+          {items.length > 0 ? (
+            <ul className="si-item-list">
+              {items.map((it) => (
+                <ItemRow key={it.id} item={it as never} locations={locations} categories={categories} tags={tags} />
+              ))}
+            </ul>
+          ) : (
+            <p className="si-section-empty">No items here yet. Assign some on the dashboard.</p>
+          )}
+        </section>
+      )}
 
       {/* Actions */}
       <div className="si-detail-actions">
         {editing ? (
           <>
             {error && <div className="si-error">{error}</div>}
-            <button type="button" className="si-btn si-btn--danger si-btn--sm" onClick={handleDelete} disabled={saving}>
-              Delete space
-            </button>
+            {!isCreating && (
+              <button type="button" className="si-btn si-btn--danger si-btn--sm" onClick={handleDelete} disabled={saving}>
+                Delete space
+              </button>
+            )}
             <span className="si-edit-spacer" />
-            <button type="button" className="si-btn si-btn--ghost si-btn--sm" onClick={() => { reset(); setEditing(false) }} disabled={saving}>
+            <button type="button" className="si-btn si-btn--ghost si-btn--sm" onClick={handleCancel} disabled={saving}>
               Cancel
             </button>
             <button type="button" className="si-btn si-btn--sm" onClick={handleSave} disabled={saving || !name.trim()}>
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? 'Saving…' : isCreating ? 'Create space' : 'Save'}
             </button>
           </>
         ) : (
