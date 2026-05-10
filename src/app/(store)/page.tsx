@@ -3,7 +3,7 @@ import { headers as nextHeaders } from 'next/headers'
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import { SpacesBento } from './components/SpacesBento'
-import { ItemQuickAdd } from './components/ItemQuickAdd'
+import { SearchAdd } from './components/SearchAdd'
 import { ItemRow } from './components/ItemRow'
 import { TagStrip } from './components/TagStrip'
 import { pickRandomTiles } from './heroRows'
@@ -19,7 +19,7 @@ export default async function HomePage() {
     redirect('/signup')
   }
 
-  const [topLocationsRes, allLocationsRes, unassignedRes, categoriesRes, tagsRes] = await Promise.all([
+  const [topLocationsRes, allLocationsRes, allItemsRes, categoriesRes, tagsRes] = await Promise.all([
     payload.find({
       collection: 'locations',
       where: { parent: { exists: false } },
@@ -37,9 +37,8 @@ export default async function HomePage() {
     }),
     payload.find({
       collection: 'items',
-      where: { location: { exists: false } },
       sort: '-createdAt',
-      limit: 200,
+      limit: 500,
       depth: 1,
       user,
     }),
@@ -49,9 +48,23 @@ export default async function HomePage() {
 
   const topLocations = topLocationsRes.docs
   const allLocations = allLocationsRes.docs.map((l) => ({ id: String(l.id), name: l.name }))
-  const unassignedItems = unassignedRes.docs
+  const allItems = allItemsRes.docs
+  const unassignedItems = allItems.filter((it) => {
+    const loc = (it as { location?: unknown }).location
+    return loc === null || loc === undefined
+  })
   const categories = categoriesRes.docs.map((c) => ({ id: String(c.id), name: c.name, color: (c as { color?: string | null }).color ?? null }))
   const tags = tagsRes.docs.map((t) => ({ id: String(t.id), name: t.name }))
+
+  const searchItems = allItems.map((i) => {
+    const loc = (i as { location?: unknown }).location
+    const locObj = loc && typeof loc === 'object' ? (loc as { id?: number | string; name?: string }) : null
+    return {
+      id: String(i.id),
+      name: i.name,
+      location: locObj ? { id: String(locObj.id ?? ''), name: locObj.name ?? '' } : null,
+    }
+  })
 
   const heroTiles = pickRandomTiles(4)
 
@@ -72,7 +85,7 @@ export default async function HomePage() {
       </header>
 
       <section className="si-section">
-        <ItemQuickAdd />
+        <SearchAdd items={searchItems} locations={allLocations} categories={tags} />
       </section>
 
       <section className="si-section">

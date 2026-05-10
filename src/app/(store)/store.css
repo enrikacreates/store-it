@@ -124,7 +124,127 @@ a { color: inherit; }
   line-height: 1.5;
 }
 
-/* ---- Item quick-add ---- */
+/* ---- Search-as-add ---- */
+.si-search {
+  position: relative;
+}
+.si-search-input-wrap {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  position: relative;
+}
+.si-search-input-icon {
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  pointer-events: none;
+  opacity: 0.55;
+}
+.si-search-input {
+  flex: 1;
+  font-family: inherit;
+  font-size: 15px;
+  padding: 14px 18px 14px 46px;
+  border: none;
+  outline: none;
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--shadow-input);
+  transition: box-shadow 0.15s ease;
+}
+.si-search-input:focus {
+  box-shadow: 0 0 0 2px var(--orange), var(--shadow-input);
+}
+.si-search-add-btn {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 14px 22px;
+  background: var(--orange);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(250, 155, 100, 0.32);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.si-search-add-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(250, 155, 100, 0.42);
+}
+.si-search-add-btn:disabled { opacity: 0.5; cursor: default; }
+
+.si-search-results {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: var(--card);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  z-index: 10;
+  overflow: hidden;
+  max-height: 420px;
+  overflow-y: auto;
+}
+.si-search-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 18px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+}
+.si-search-row.is-on {
+  background: var(--bg);
+}
+.si-search-icon {
+  font-size: 16px;
+  width: 22px;
+  text-align: center;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+.si-search-name {
+  flex: 1;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.si-search-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.si-search-row--create {
+  border-top: 1px solid rgba(26, 26, 26, 0.08);
+  color: var(--orange);
+  font-weight: 600;
+}
+.si-search-row--create .si-search-icon {
+  color: var(--orange);
+  font-weight: 600;
+  opacity: 1;
+}
+.si-search-row--create .si-search-meta {
+  color: var(--orange);
+  opacity: 0.6;
+}
+.si-search-error {
+  padding: 8px 18px 12px;
+}
+
+/* ---- Item quick-add (legacy, unused after SearchAdd) ---- */
 .si-quickadd {
   display: flex;
   gap: 10px;
