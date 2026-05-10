@@ -179,15 +179,9 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
         setSaving(false)
         return
       }
-      const data = await res.json()
-      const newId = isCreating ? (data?.doc?.id ?? data?.id) : null
       setSaving(false)
-      if (isCreating && newId) {
-        router.push(`/l/${newId}`)
-      } else {
-        // Stay in edit mode after save — refresh underlying data.
-        router.refresh()
-      }
+      // Save always returns to the dashboard.
+      router.push('/')
     } catch {
       setError('Something went wrong.')
       setSaving(false)
@@ -415,7 +409,7 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
         )}
         <span className="si-edit-spacer" />
         <button type="button" className="si-btn si-btn--ghost si-btn--sm" onClick={handleCancel} disabled={saving}>
-          {isCreating ? 'Cancel' : 'Done'}
+          Cancel
         </button>
         <button type="button" className="si-btn si-btn--sm" onClick={handleSave} disabled={saving || !name.trim()}>
           {saving ? 'Saving…' : isCreating ? 'Create space' : 'Save'}
