@@ -225,6 +225,7 @@ export function ItemRow({ item, locations, categories, tags }: Props) {
               key={p.value}
               type="button"
               className={`si-tagchip ${accessPattern === p.value ? 'is-on' : ''}`}
+              style={accessPattern === p.value ? { background: p.color, color: p.textColor } : undefined}
               onClick={() => setAccessPattern(accessPattern === p.value ? '' : p.value)}
             >
               {p.label}
