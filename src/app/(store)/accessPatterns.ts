@@ -14,7 +14,7 @@ export const ACCESS_PATTERNS: AccessPatternDef[] = [
   { value: 'long-term', label: 'Long-term', color: '#34547A', textColor: '#FFFFFF' },
   { value: 'seasonal', label: 'Seasonal', color: '#FDC4C5', textColor: '#1A1A1A' },
   { value: 'on-the-go', label: 'On-the-go', color: '#79C9B1', textColor: '#FFFFFF' },
-  { value: 'active-project', label: 'Active project', color: '#1A1A1A', textColor: '#FFFFFF' },
+  { value: 'active-project', label: 'Active project', color: '#D4A028', textColor: '#1A1A1A' },
 ]
 
 export function accessPatternDef(value?: string | null): AccessPatternDef | null {
