@@ -31,6 +31,7 @@ type Location = {
   image?: Media | string | null
   accessPattern?: string | null
   gallery?: GalleryEntry[] | null
+  sortOrder?: number | null
 }
 
 type Props = {
@@ -60,10 +61,14 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
   const initialLeadId = location && typeof location.image === 'object' && location.image ? (location.image.id ?? null) : null
   const initialLeadUrl = mediaUrl(location?.image, 'hero')
 
+  const initialSlot = isCreating
+    ? (creatingSlot ?? 0)
+    : (typeof location?.sortOrder === 'number' ? location.sortOrder : 0)
   const [name, setName] = useState(location?.name ?? '')
   const [primarilyFor, setPrimarilyFor] = useState(location?.primarilyFor ?? '')
   const [accessPattern, setAccessPattern] = useState<string>(location?.accessPattern ?? '')
   const [notes, setNotes] = useState(location?.description ?? '')
+  const [slot, setSlot] = useState<number>(initialSlot)
   const [leadImageId, setLeadImageId] = useState<string | null>(initialLeadId)
   const [leadImageUrl, setLeadImageUrl] = useState<string | null>(initialLeadUrl)
   const [gallery, setGallery] = useState<GalleryEntry[]>(location?.gallery ?? [])
@@ -77,6 +82,7 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     setPrimarilyFor(location?.primarilyFor ?? '')
     setAccessPattern(location?.accessPattern ?? '')
     setNotes(location?.description ?? '')
+    setSlot(initialSlot)
     setLeadImageId(initialLeadId)
     setLeadImageUrl(initialLeadUrl)
     setGallery(location?.gallery ?? [])
@@ -157,9 +163,7 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
         image: leadImageId || null,
         accessPattern: accessPattern || null,
         gallery: galleryPayload,
-      }
-      if (isCreating && typeof creatingSlot === 'number') {
-        body.sortOrder = creatingSlot
+        sortOrder: Number.isFinite(slot) && slot >= 0 ? slot : 0,
       }
 
       const url = isCreating ? '/api/locations' : `/api/locations/${location!.id}`
@@ -266,6 +270,25 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
               maxLength={120}
               placeholder="Theme — what belongs here?"
             />
+            <div className="si-edit-row">
+              <span className="si-edit-label">Slot</span>
+              <div className="si-slot-row">
+                <input
+                  className="si-field si-slot-input"
+                  type="number"
+                  min={1}
+                  value={slot + 1}
+                  onChange={(e) => {
+                    const n = Number.parseInt(e.target.value, 10)
+                    setSlot(Number.isFinite(n) && n >= 1 ? n - 1 : 0)
+                  }}
+                />
+                <span className="si-slot-helper">
+                  Page {Math.floor(slot / 6) + 1} · position {(slot % 6) + 1}
+                </span>
+              </div>
+            </div>
+
             <div className="si-edit-row">
               <span className="si-edit-label">Access frequency</span>
               <div className="si-tagpicker">

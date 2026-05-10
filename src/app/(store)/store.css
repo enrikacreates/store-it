@@ -919,6 +919,22 @@ button.si-cat-chip:hover {
   font-weight: 300;
 }
 
+.si-slot-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.si-slot-input {
+  width: 90px;
+  font-size: 14px;
+  text-align: center;
+}
+.si-slot-helper {
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
 .si-detail-notes {
   width: 100%;
   font-size: 14px;
