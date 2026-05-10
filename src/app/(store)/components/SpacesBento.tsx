@@ -173,11 +173,7 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
   const handleDragEnd = async (e: DragEndEvent) => {
     setActiveDragLoc(null)
     const { active, over } = e
-    console.log('[DnD] dragEnd', { activeId: active.id, overId: over?.id })
-    if (!over || active.id === over.id) {
-      console.log('[DnD] bail: no over or same as active')
-      return
-    }
+    if (!over || active.id === over.id) return
 
     const activeId = String(active.id)
     const overId = String(over.id)
@@ -185,16 +181,10 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
     if (!activeId.startsWith('loc:')) return
     const activeLocId = activeId.slice('loc:'.length)
     const activeLoc = locations.find((l) => String(l.id) === activeLocId)
-    if (!activeLoc) {
-      console.log('[DnD] bail: activeLoc not found', activeLocId, locations.map((l) => l.id))
-      return
-    }
+    if (!activeLoc) return
 
     const oldSlot = locToSlot.get(String(activeLoc.id))
-    if (oldSlot === undefined) {
-      console.log('[DnD] bail: oldSlot undefined for', activeLoc.id, [...locToSlot.entries()])
-      return
-    }
+    if (oldSlot === undefined) return
 
     let targetSlot: number
     let displacedLoc: Location | undefined
@@ -205,16 +195,12 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
       const overLocId = overId.slice('loc:'.length)
       displacedLoc = locations.find((l) => String(l.id) === overLocId)
       const displacedSlot = displacedLoc ? locToSlot.get(String(displacedLoc.id)) : undefined
-      if (!displacedLoc || displacedSlot === undefined) {
-        console.log('[DnD] bail: displaced lookup failed', overLocId)
-        return
-      }
+      if (!displacedLoc || displacedSlot === undefined) return
       targetSlot = displacedSlot
     } else {
       return
     }
 
-    console.log('[DnD] swap', { activeLocId, oldSlot, targetSlot, displaced: displacedLoc?.id })
     if (targetSlot === oldSlot) return
 
     // Optimistic local update
@@ -244,11 +230,9 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
           }),
         )
       }
-      const results = await Promise.all(calls)
-      console.log('[DnD] PATCH results', results.map((r) => r.status))
+      await Promise.all(calls)
       router.refresh()
-    } catch (err) {
-      console.log('[DnD] PATCH error', err)
+    } catch {
       router.refresh()
     }
   }
