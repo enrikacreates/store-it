@@ -8,12 +8,12 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
-  closestCenter,
+  useDraggable,
+  useDroppable,
+  pointerWithin,
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
-import { SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import { BentoGrid } from './BentoGrid'
 import { LocationTile } from './LocationTile'
 import { AddLocationTile } from './AddLocationTile'
@@ -39,46 +39,70 @@ function cellId(c: CellInfo): string {
   return c.kind === 'loc' ? `loc:${c.loc.id}` : `add:${c.slot}`
 }
 
-function SortableCell({ cell }: { cell: CellInfo }) {
-  const id = cellId(cell)
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
-    useSortable({ id })
+function DragHandleSvg() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden>
+      <circle cx="5" cy="3" r="1.3" />
+      <circle cx="11" cy="3" r="1.3" />
+      <circle cx="5" cy="8" r="1.3" />
+      <circle cx="11" cy="8" r="1.3" />
+      <circle cx="5" cy="13" r="1.3" />
+      <circle cx="11" cy="13" r="1.3" />
+    </svg>
+  )
+}
+
+function DraggableLocationCell({ loc }: { loc: Location }) {
+  const draggable = useDraggable({ id: `loc:${loc.id}` })
+  const droppable = useDroppable({ id: `loc:${loc.id}` })
+
+  const setRef = (node: HTMLElement | null) => {
+    draggable.setNodeRef(node)
+    droppable.setNodeRef(node)
+  }
 
   const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
-    zIndex: isDragging ? 10 : 'auto',
+    transform: draggable.transform
+      ? `translate3d(${draggable.transform.x}px, ${draggable.transform.y}px, 0)`
+      : undefined,
+    transition: draggable.isDragging ? 'none' : 'transform 0.15s ease',
+    zIndex: draggable.isDragging ? 10 : 'auto',
+    opacity: draggable.isDragging ? 0.5 : 1,
     position: 'relative',
     height: '100%',
     display: 'flex',
+    outline: droppable.isOver && !draggable.isDragging ? `2px solid var(--orange)` : 'none',
+    outlineOffset: droppable.isOver && !draggable.isDragging ? '-2px' : 0,
   }
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes}>
-      {cell.kind === 'loc' && (
-        <button
-          ref={setActivatorNodeRef}
-          {...listeners}
-          type="button"
-          className="si-drag-handle"
-          aria-label="Drag to reorder"
-        >
-          <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden>
-            <circle cx="5" cy="3" r="1.3" />
-            <circle cx="11" cy="3" r="1.3" />
-            <circle cx="5" cy="8" r="1.3" />
-            <circle cx="11" cy="8" r="1.3" />
-            <circle cx="5" cy="13" r="1.3" />
-            <circle cx="11" cy="13" r="1.3" />
-          </svg>
-        </button>
-      )}
-      {cell.kind === 'loc' ? (
-        <LocationTile location={cell.loc as never} />
-      ) : (
-        <AddLocationTile targetSlot={cell.slot} />
-      )}
+    <div ref={setRef} style={style} {...draggable.attributes}>
+      <button
+        ref={draggable.setActivatorNodeRef}
+        {...draggable.listeners}
+        type="button"
+        className="si-drag-handle"
+        aria-label="Drag to reorder"
+      >
+        <DragHandleSvg />
+      </button>
+      <LocationTile location={loc as never} />
+    </div>
+  )
+}
+
+function DroppableAddCell({ slot }: { slot: number }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `add:${slot}` })
+  const style: React.CSSProperties = {
+    position: 'relative',
+    height: '100%',
+    display: 'flex',
+    outline: isOver ? '2px solid var(--orange)' : 'none',
+    outlineOffset: isOver ? '-2px' : 0,
+  }
+  return (
+    <div ref={setNodeRef} style={style}>
+      <AddLocationTile targetSlot={slot} />
     </div>
   )
 }
@@ -89,7 +113,6 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [locations, setLocations] = useState<Location[]>(propLocations)
 
-  // Sync from server when props change (after router.refresh()).
   useEffect(() => {
     setLocations(propLocations)
   }, [propLocations])
@@ -130,7 +153,7 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
   }
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
   )
 
@@ -151,7 +174,6 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
     const activeLoc = locations.find((l) => l.id === activeLocId)
     if (!activeLoc) return
 
-    // Use the resolved slot map (handles locations whose sortOrder is null/missing).
     const oldSlot = locToSlot.get(activeLoc.id)
     if (oldSlot === undefined) return
 
@@ -172,7 +194,7 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
 
     if (targetSlot === oldSlot) return
 
-    // 1. Optimistic local update — the tile sticks in place visually.
+    // Optimistic local update
     setLocations((prev) =>
       prev.map((l) => {
         if (l.id === activeLoc.id) return { ...l, sortOrder: targetSlot }
@@ -181,7 +203,6 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
       }),
     )
 
-    // 2. Persist to server in parallel; refresh when done so server is source of truth.
     try {
       const calls: Promise<Response>[] = [
         fetch(`/api/locations/${activeLoc.id}`, {
@@ -202,33 +223,31 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
       await Promise.all(calls)
       router.refresh()
     } catch {
-      // Revert by resyncing from server.
       router.refresh()
     }
   }
 
-  // Reset page if locations shrink below current page.
   useEffect(() => {
     if (safePage !== pageIdx) setPageIdx(safePage)
   }, [safePage, pageIdx])
-
-  const cellIds = cells.map(cellId)
 
   return (
     <div className="si-spaces">
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={pointerWithin}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <SortableContext items={cellIds} strategy={rectSortingStrategy}>
-          <BentoGrid>
-            {cells.map((c) => (
-              <SortableCell key={cellId(c)} cell={c} />
-            ))}
-          </BentoGrid>
-        </SortableContext>
+        <BentoGrid>
+          {cells.map((c) =>
+            c.kind === 'loc' ? (
+              <DraggableLocationCell key={cellId(c)} loc={c.loc} />
+            ) : (
+              <DroppableAddCell key={cellId(c)} slot={c.slot} />
+            ),
+          )}
+        </BentoGrid>
       </DndContext>
       <nav className="si-bento-nav" aria-label="Spaces pages">
         <button
@@ -251,7 +270,7 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
           ›
         </button>
       </nav>
-      {draggingId && <div className="si-spaces-hint">Drag onto another tile to swap, or onto an empty slot to move.</div>}
+      {draggingId && <div className="si-spaces-hint">Drop on a tile to swap, or on an empty slot to move.</div>}
     </div>
   )
 }
