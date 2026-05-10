@@ -69,7 +69,7 @@ export const Locations: CollectionConfig = {
       label: 'Access pattern',
       options: [
         { label: 'Quick access', value: 'quick-access' },
-        { label: 'Long-term storage', value: 'long-term' },
+        { label: 'Long-term', value: 'long-term' },
         { label: 'Seasonal', value: 'seasonal' },
         { label: 'On-the-go', value: 'on-the-go' },
         { label: 'Active project', value: 'active-project' },
