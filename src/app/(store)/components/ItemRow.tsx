@@ -214,20 +214,6 @@ export function ItemRow({ item, locations, categories, tags }: Props) {
 
       {showDetails && (
         <>
-          <label className="si-edit-row">
-            <span className="si-edit-label">Category tag</span>
-            <select
-              className="si-field si-select"
-              value={catId}
-              onChange={(e) => setCatId(e.target.value)}
-            >
-              <option value="">— None —</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </label>
-
           {tags.length > 0 && (
             <div className="si-edit-row">
               <span className="si-edit-label">Tags</span>
