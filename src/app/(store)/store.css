@@ -955,6 +955,18 @@ button.si-cat-chip:hover {
   border-top: 1px solid rgba(26, 26, 26, 0.08);
 }
 
+.si-autosave {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-style: italic;
+  transition: opacity 0.2s ease;
+}
+.si-autosave--idle { opacity: 0; }
+.si-autosave--saving { opacity: 1; }
+.si-autosave--saved { opacity: 1; color: var(--green); }
+.si-autosave--error { opacity: 1; color: #B23B1F; }
+
 /* ---- Drag overlay (preview while dragging) ---- */
 .si-drag-overlay {
   width: 240px;

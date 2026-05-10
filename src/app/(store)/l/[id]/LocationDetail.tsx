@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ItemRow } from '../../components/ItemRow'
@@ -76,6 +76,9 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
   const [uploadingGallery, setUploadingGallery] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const isFirstAutosaveRun = useRef(true)
+  const savedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const reset = () => {
     setName(location?.name ?? '')
@@ -207,9 +210,56 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
   }
 
   const handleCancel = () => {
-    // No read-only mode to fall back to — Cancel always returns to the dashboard.
     router.push('/')
   }
+
+  // ---- Autosave for existing spaces ----
+  // Debounce ~1.2s after the last change. Skips first run on mount.
+  // Skips while file uploads are in flight (those have their own loading state)
+  // and during create mode (which uses the explicit Create button).
+  useEffect(() => {
+    if (isCreating || !location || uploadingLead || uploadingGallery) return
+    if (isFirstAutosaveRun.current) {
+      isFirstAutosaveRun.current = false
+      return
+    }
+    if (!name.trim()) return
+
+    const timer = setTimeout(async () => {
+      setAutosaveStatus('saving')
+      try {
+        const galleryPayload = gallery.map((g) => ({
+          image: typeof g.image === 'object' ? (g.image as Media).id : g.image,
+          caption: g.caption || '',
+        }))
+        const res = await fetch(`/api/locations/${location.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: name.trim(),
+            primarilyFor: primarilyFor.trim() || null,
+            description: notes.trim() || null,
+            image: leadImageId || null,
+            accessPattern: accessPattern || null,
+            gallery: galleryPayload,
+            sortOrder: Number.isFinite(slot) && slot >= 0 ? slot : 0,
+          }),
+        })
+        if (res.ok) {
+          setAutosaveStatus('saved')
+          if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current)
+          savedTimeoutRef.current = setTimeout(() => setAutosaveStatus('idle'), 2000)
+        } else {
+          setAutosaveStatus('error')
+        }
+      } catch {
+        setAutosaveStatus('error')
+      }
+    }, 1200)
+
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, primarilyFor, notes, accessPattern, leadImageId, slot, gallery, isCreating, location?.id])
 
   return (
     <div className="si-detail">
@@ -407,13 +457,28 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
             Delete space
           </button>
         )}
+        {!isCreating && (
+          <span className={`si-autosave si-autosave--${autosaveStatus}`}>
+            {autosaveStatus === 'saving' && 'Saving…'}
+            {autosaveStatus === 'saved' && '✓ Saved'}
+            {autosaveStatus === 'error' && '⚠ Couldn’t save'}
+          </span>
+        )}
         <span className="si-edit-spacer" />
-        <button type="button" className="si-btn si-btn--ghost si-btn--sm" onClick={handleCancel} disabled={saving}>
-          Cancel
-        </button>
-        <button type="button" className="si-btn si-btn--sm" onClick={handleSave} disabled={saving || !name.trim()}>
-          {saving ? 'Saving…' : isCreating ? 'Create space' : 'Save'}
-        </button>
+        {isCreating ? (
+          <>
+            <button type="button" className="si-btn si-btn--ghost si-btn--sm" onClick={handleCancel} disabled={saving}>
+              Cancel
+            </button>
+            <button type="button" className="si-btn si-btn--sm" onClick={handleSave} disabled={saving || !name.trim()}>
+              {saving ? 'Saving…' : 'Create space'}
+            </button>
+          </>
+        ) : (
+          <button type="button" className="si-btn si-btn--sm" onClick={handleCancel}>
+            Done
+          </button>
+        )}
       </div>
     </div>
   )
