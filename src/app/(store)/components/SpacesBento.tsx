@@ -94,13 +94,15 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
     setLocations(propLocations)
   }, [propLocations])
 
-  // Build slot map keyed by sortOrder.
+  // Build slot map keyed by sortOrder, plus reverse locId→slot lookup.
   const slotMap = new Map<number, Location>()
+  const locToSlot = new Map<string, number>()
   const taken = new Set<number>()
   const unsorted: Location[] = []
   for (const loc of locations) {
     if (typeof loc.sortOrder === 'number' && !taken.has(loc.sortOrder)) {
       slotMap.set(loc.sortOrder, loc)
+      locToSlot.set(loc.id, loc.sortOrder)
       taken.add(loc.sortOrder)
     } else {
       unsorted.push(loc)
@@ -110,6 +112,7 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
   for (const loc of unsorted) {
     while (taken.has(cursor)) cursor++
     slotMap.set(cursor, loc)
+    locToSlot.set(loc.id, cursor)
     taken.add(cursor)
     cursor++
   }
@@ -148,8 +151,9 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
     const activeLoc = locations.find((l) => l.id === activeLocId)
     if (!activeLoc) return
 
-    const oldSlot = typeof activeLoc.sortOrder === 'number' ? activeLoc.sortOrder : null
-    if (oldSlot === null) return
+    // Use the resolved slot map (handles locations whose sortOrder is null/missing).
+    const oldSlot = locToSlot.get(activeLoc.id)
+    if (oldSlot === undefined) return
 
     let targetSlot: number
     let displacedLoc: Location | undefined
@@ -159,8 +163,9 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
     } else if (overId.startsWith('loc:')) {
       const overLocId = overId.slice('loc:'.length)
       displacedLoc = locations.find((l) => l.id === overLocId)
-      if (!displacedLoc || typeof displacedLoc.sortOrder !== 'number') return
-      targetSlot = displacedLoc.sortOrder
+      const displacedSlot = displacedLoc ? locToSlot.get(displacedLoc.id) : undefined
+      if (!displacedLoc || displacedSlot === undefined) return
+      targetSlot = displacedSlot
     } else {
       return
     }
