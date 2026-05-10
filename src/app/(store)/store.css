@@ -50,6 +50,17 @@ a { color: inherit; }
   transform: translateY(-1px);
   box-shadow: var(--shadow-card-hover);
 }
+.si-brand-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--orange);
+  flex-shrink: 0;
+}
+.si-brand-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 .si-brand-dot {
   color: var(--orange);
   font-weight: 900;
