@@ -150,7 +150,7 @@ export function LocationTile({ location }: { location: Location }) {
           value={primarilyFor}
           onChange={(e) => setPrimarilyFor(e.target.value)}
           maxLength={120}
-          placeholder="Primarily for… (optional)"
+          placeholder="Theme — what belongs here? (e.g. camping / outdoor sports)"
         />
         <div className="si-edit-row">
           <span className="si-edit-label">Access pattern</span>
@@ -183,7 +183,10 @@ export function LocationTile({ location }: { location: Location }) {
       <div className="si-tile-image">
         {initialImgUrl ? <img src={initialImgUrl} alt="" /> : <div className="si-tile-placeholder" aria-hidden>📍</div>}
       </div>
-      <div className="si-tile-name">{location.name}</div>
+      <div className="si-tile-text">
+        <div className="si-tile-name">{location.name}</div>
+        {location.primarilyFor && <div className="si-tile-subtitle">{location.primarilyFor}</div>}
+      </div>
     </button>
   )
 }
