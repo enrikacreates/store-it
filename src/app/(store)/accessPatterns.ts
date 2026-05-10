@@ -1,4 +1,4 @@
-export type AccessPattern = 'quick-access' | 'long-term' | 'seasonal' | 'on-the-go' | 'active-project'
+export type AccessPattern = 'quick-access' | 'long-term' | 'seasonal' | 'on-the-go' | 'active-project' | 'general'
 
 export type AccessPatternDef = {
   value: AccessPattern
@@ -15,6 +15,7 @@ export const ACCESS_PATTERNS: AccessPatternDef[] = [
   { value: 'seasonal', label: 'Seasonal', color: '#FDC4C5', textColor: '#1A1A1A' },
   { value: 'on-the-go', label: 'On-the-go', color: '#79C9B1', textColor: '#FFFFFF' },
   { value: 'active-project', label: 'Active project', color: '#D4A028', textColor: '#1A1A1A' },
+  { value: 'general', label: 'General storage', color: '#9C7E5C', textColor: '#FFFFFF' },
 ]
 
 export function accessPatternDef(value?: string | null): AccessPatternDef | null {

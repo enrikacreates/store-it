@@ -73,6 +73,7 @@ export const Locations: CollectionConfig = {
         { label: 'Seasonal', value: 'seasonal' },
         { label: 'On-the-go', value: 'on-the-go' },
         { label: 'Active project', value: 'active-project' },
+        { label: 'General storage', value: 'general' },
       ],
       admin: {
         description: 'How this space is primarily used.',
