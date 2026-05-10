@@ -49,7 +49,7 @@ function CategoryChip({ category }: { category: Cat }) {
   }
 
   const handleDelete = async () => {
-    if (!confirm(`Delete category "${category.name}"?`)) return
+    if (!confirm(`Delete tag "${category.name}"?`)) return
     setSaving(true)
     try {
       const res = await fetch(`/api/categories/${category.id}`, { method: 'DELETE' })
@@ -139,7 +139,7 @@ function AddCategoryChip() {
   if (!adding) {
     return (
       <button type="button" className="si-cat-chip si-cat-chip--add" onClick={() => setAdding(true)}>
-        + Add category
+        + Add tag
       </button>
     )
   }
@@ -149,7 +149,7 @@ function AddCategoryChip() {
       <input
         className="si-cat-input"
         type="text"
-        placeholder="Category name"
+        placeholder="Tag name (e.g. art supplies)"
         value={name}
         onChange={(e) => setName(e.target.value)}
         autoFocus

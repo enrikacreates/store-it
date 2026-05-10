@@ -83,7 +83,7 @@ export default async function HomePage() {
       </section>
 
       <section className="si-section">
-        <h2 className="si-section-title">Categories</h2>
+        <h2 className="si-section-title">Category tags</h2>
         <CategoryStrip categories={categories} />
       </section>
 

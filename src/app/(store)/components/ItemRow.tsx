@@ -215,7 +215,7 @@ export function ItemRow({ item, locations, categories, tags }: Props) {
       {showDetails && (
         <>
           <label className="si-edit-row">
-            <span className="si-edit-label">Category</span>
+            <span className="si-edit-label">Category tag</span>
             <select
               className="si-field si-select"
               value={catId}
