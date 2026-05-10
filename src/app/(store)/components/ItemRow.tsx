@@ -2,6 +2,7 @@
 
 import React, { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ACCESS_PATTERNS, type AccessPattern } from '../accessPatterns'
 
 type Loc = { id: string; name: string }
 type Cat = { id: string; name: string; color?: string | null }
@@ -16,6 +17,7 @@ type Item = {
   category?: Cat | string | null
   tags?: (Tag | string)[] | null
   image?: Media | string | null
+  accessPattern?: AccessPattern | string | null
 }
 
 type Props = {
@@ -46,6 +48,7 @@ export function ItemRow({ item, locations, categories, tags }: Props) {
   const [description, setDescription] = useState(item.description ?? '')
   const [imageId, setImageId] = useState<string | null>(initialImage?.id ?? null)
   const [imageUrl, setImageUrl] = useState<string | null>(initialImageUrl)
+  const [accessPattern, setAccessPattern] = useState<string>(item.accessPattern ?? '')
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -58,6 +61,7 @@ export function ItemRow({ item, locations, categories, tags }: Props) {
     setDescription(item.description ?? '')
     setImageId(initialImage?.id ?? null)
     setImageUrl(initialImageUrl)
+    setAccessPattern(item.accessPattern ?? '')
     setError('')
   }
 
@@ -102,6 +106,7 @@ export function ItemRow({ item, locations, categories, tags }: Props) {
         tags: tagIds,
         description: description.trim() || null,
         image: imageId || null,
+        accessPattern: accessPattern || null,
       }
       const res = await fetch(`/api/items/${item.id}`, {
         method: 'PATCH',
@@ -211,6 +216,22 @@ export function ItemRow({ item, locations, categories, tags }: Props) {
           ))}
         </select>
       </label>
+
+      <div className="si-edit-row">
+        <span className="si-edit-label">Access pattern</span>
+        <div className="si-tagpicker">
+          {ACCESS_PATTERNS.map((p) => (
+            <button
+              key={p.value}
+              type="button"
+              className={`si-tagchip ${accessPattern === p.value ? 'is-on' : ''}`}
+              onClick={() => setAccessPattern(accessPattern === p.value ? '' : p.value)}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {showDetails && (
         <>

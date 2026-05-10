@@ -10,6 +10,7 @@ type Location = {
   name: string
   primarilyFor?: string | null
   image?: Media | string | null
+  accessPattern?: string | null
 }
 
 export function LocationTile({ location }: { location: Location }) {
@@ -24,6 +25,7 @@ export function LocationTile({ location }: { location: Location }) {
   const [primarilyFor, setPrimarilyFor] = useState(location.primarilyFor ?? '')
   const [imageId, setImageId] = useState<string | null>(initialMedia?.id ?? null)
   const [imageUrl, setImageUrl] = useState<string | null>(initialImgUrl)
+  const [accessPattern, setAccessPattern] = useState<string>(location.accessPattern ?? '')
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -33,6 +35,7 @@ export function LocationTile({ location }: { location: Location }) {
     setPrimarilyFor(location.primarilyFor ?? '')
     setImageId(initialMedia?.id ?? null)
     setImageUrl(initialImgUrl)
+    setAccessPattern(location.accessPattern ?? '')
     setError('')
   }
 
@@ -77,6 +80,7 @@ export function LocationTile({ location }: { location: Location }) {
           name: name.trim(),
           primarilyFor: primarilyFor.trim() || null,
           image: imageId || null,
+          accessPattern: accessPattern || null,
         }),
       })
       if (!res.ok) {
@@ -147,6 +151,21 @@ export function LocationTile({ location }: { location: Location }) {
           maxLength={120}
           placeholder="Primarily for… (optional)"
         />
+        <div className="si-edit-row">
+          <span className="si-edit-label">Access pattern</span>
+          <div className="si-tagpicker">
+            {ACCESS_PATTERNS.map((p) => (
+              <button
+                key={p.value}
+                type="button"
+                className={`si-tagchip ${accessPattern === p.value ? 'is-on' : ''}`}
+                onClick={() => setAccessPattern(accessPattern === p.value ? '' : p.value)}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
         {error && <div className="si-error">{error}</div>}
         <div className="si-tile-edit-actions">
           <button type="button" className="si-btn si-btn--danger si-btn--sm" onClick={handleDelete} disabled={saving}>Delete</button>

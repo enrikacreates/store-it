@@ -64,6 +64,21 @@ export const Items: CollectionConfig = {
       max: 1,
     },
     {
+      name: 'accessPattern',
+      type: 'select',
+      label: 'Access pattern',
+      options: [
+        { label: 'Quick access', value: 'quick-access' },
+        { label: 'Long-term storage', value: 'long-term' },
+        { label: 'Seasonal', value: 'seasonal' },
+        { label: 'On-the-go', value: 'on-the-go' },
+        { label: 'Active project', value: 'active-project' },
+      ],
+      admin: {
+        description: 'How often / how this item is used.',
+      },
+    },
+    {
       name: 'quantity',
       type: 'number',
       defaultValue: 1,
