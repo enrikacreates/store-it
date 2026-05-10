@@ -16,7 +16,7 @@ export default function SignUpPage() {
         </div>
         <div className="si-auth-body">
           <p className="si-auth-eyebrow">Store It</p>
-          <h1 className="si-auth-title">Store your stuff.<br/>Find your stuff.</h1>
+          <h1 className="si-auth-title">Store it, find it.</h1>
           <p className="si-auth-tagline">Always ready to create.</p>
 
           <SignUpForm />

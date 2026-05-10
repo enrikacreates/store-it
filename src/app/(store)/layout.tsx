@@ -2,7 +2,7 @@ import React from 'react'
 import './store.css'
 
 export const metadata = {
-  title: 'Store It — Store your stuff. Find your stuff.',
+  title: 'Store It — Store it, find it.',
   description: 'A simple home organization app for creatives.',
 }
 

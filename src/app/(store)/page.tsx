@@ -73,7 +73,7 @@ export default async function HomePage() {
 
       <header className="si-header">
         <p className="si-eyebrow">Store It</p>
-        <h1 className="si-title">Store your stuff.<br/>Find your stuff.</h1>
+        <h1 className="si-title">Store it, find it.</h1>
         <p className="si-lede">A simple home organization app for creatives.</p>
       </header>
 
