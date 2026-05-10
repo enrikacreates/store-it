@@ -42,7 +42,7 @@ a { color: inherit; }
   padding: 0 10px;
 }
 .si-dash-strip-cell {
-  aspect-ratio: 10 / 7;
+  aspect-ratio: 2 / 1;
   overflow: hidden;
   border-radius: 14px;
   background: var(--bg);
