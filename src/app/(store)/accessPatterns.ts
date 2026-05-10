@@ -11,7 +11,7 @@ export type AccessPatternDef = {
 
 export const ACCESS_PATTERNS: AccessPatternDef[] = [
   { value: 'quick-access', label: 'Quick access', color: '#FA9B64', textColor: '#FFFFFF' },
-  { value: 'long-term', label: 'Long-term', color: '#6E6E6E', textColor: '#FFFFFF' },
+  { value: 'long-term', label: 'Long-term', color: '#34547A', textColor: '#FFFFFF' },
   { value: 'seasonal', label: 'Seasonal', color: '#FDC4C5', textColor: '#1A1A1A' },
   { value: 'on-the-go', label: 'On-the-go', color: '#79C9B1', textColor: '#FFFFFF' },
   { value: 'active-project', label: 'Active project', color: '#1A1A1A', textColor: '#FFFFFF' },
