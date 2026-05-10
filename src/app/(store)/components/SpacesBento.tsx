@@ -1,6 +1,19 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core'
+import { SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { BentoGrid } from './BentoGrid'
 import { LocationTile } from './LocationTile'
 import { AddLocationTile } from './AddLocationTile'
@@ -18,12 +31,43 @@ type Location = {
 const PAGE_SIZE = 6
 const MIN_PAGES = 3
 
-export function SpacesBento({ locations }: { locations: Location[] }) {
-  const [pageIdx, setPageIdx] = useState(0)
+type CellInfo =
+  | { kind: 'loc'; loc: Location; slot: number }
+  | { kind: 'add'; slot: number }
 
-  // Build slot map keyed by sortOrder (= absolute slot index).
-  // Locations with no sortOrder get fallback slots starting from 0,
-  // skipping any positions already taken by explicit sortOrder values.
+function cellId(c: CellInfo): string {
+  return c.kind === 'loc' ? `loc:${c.loc.id}` : `add:${c.slot}`
+}
+
+function SortableCell({ cell }: { cell: CellInfo }) {
+  const id = cellId(cell)
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    zIndex: isDragging ? 10 : 'auto',
+    cursor: cell.kind === 'loc' ? 'grab' : undefined,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {cell.kind === 'loc' ? (
+        <LocationTile location={cell.loc as never} />
+      ) : (
+        <AddLocationTile targetSlot={cell.slot} />
+      )}
+    </div>
+  )
+}
+
+export function SpacesBento({ locations }: { locations: Location[] }) {
+  const router = useRouter()
+  const [pageIdx, setPageIdx] = useState(0)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+
+  // Build slot map keyed by sortOrder.
   const slotMap = new Map<number, Location>()
   const taken = new Set<number>()
   const unsorted: Location[] = []
@@ -35,7 +79,6 @@ export function SpacesBento({ locations }: { locations: Location[] }) {
       unsorted.push(loc)
     }
   }
-  // Drop unsorted into the lowest-numbered free slots
   let cursor = 0
   for (const loc of unsorted) {
     while (taken.has(cursor)) cursor++
@@ -50,19 +93,109 @@ export function SpacesBento({ locations }: { locations: Location[] }) {
   const start = safePage * PAGE_SIZE
   const end = start + PAGE_SIZE
 
-  const cells: React.ReactNode[] = []
-  for (let slot = start; slot < end; slot++) {
-    const loc = slotMap.get(slot)
-    if (loc) {
-      cells.push(<LocationTile key={`loc-${loc.id}`} location={loc as never} />)
+  const cells: CellInfo[] = []
+  for (let s = start; s < end; s++) {
+    const loc = slotMap.get(s)
+    cells.push(loc ? { kind: 'loc', loc, slot: s } : { kind: 'add', slot: s })
+  }
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
+  )
+
+  const handleDragStart = (e: DragStartEvent) => {
+    setDraggingId(String(e.active.id))
+  }
+
+  const handleDragEnd = async (e: DragEndEvent) => {
+    setDraggingId(null)
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+
+    const activeId = String(active.id)
+    const overId = String(over.id)
+
+    // Active must be a real location tile.
+    if (!activeId.startsWith('loc:')) return
+    const activeLocId = activeId.slice('loc:'.length)
+    const activeLoc = locations.find((l) => l.id === activeLocId)
+    if (!activeLoc) return
+
+    const oldSlot = typeof activeLoc.sortOrder === 'number' ? activeLoc.sortOrder : null
+    if (oldSlot === null) return
+
+    let targetSlot: number
+    let displacedLoc: Location | undefined
+
+    if (overId.startsWith('add:')) {
+      targetSlot = Number.parseInt(overId.slice('add:'.length), 10)
+    } else if (overId.startsWith('loc:')) {
+      const overLocId = overId.slice('loc:'.length)
+      displacedLoc = locations.find((l) => l.id === overLocId)
+      if (!displacedLoc || typeof displacedLoc.sortOrder !== 'number') return
+      targetSlot = displacedLoc.sortOrder
     } else {
-      cells.push(<AddLocationTile key={`add-${slot}`} targetSlot={slot} />)
+      return
+    }
+
+    if (targetSlot === oldSlot) return
+
+    // Two-phase write to avoid unique-slot collisions:
+    // 1. Park displaced (if any) at a temporary slot that's clearly out of band.
+    // 2. Move active to target slot.
+    // 3. Move displaced from parking to active's old slot.
+    const TEMP_SLOT = -1
+
+    try {
+      if (displacedLoc) {
+        await fetch(`/api/locations/${displacedLoc.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sortOrder: TEMP_SLOT }),
+        })
+      }
+      await fetch(`/api/locations/${activeLoc.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sortOrder: targetSlot }),
+      })
+      if (displacedLoc) {
+        await fetch(`/api/locations/${displacedLoc.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sortOrder: oldSlot }),
+        })
+      }
+      router.refresh()
+    } catch {
+      router.refresh()
     }
   }
 
+  // Reset page if locations shrink below current page.
+  useEffect(() => {
+    if (safePage !== pageIdx) setPageIdx(safePage)
+  }, [safePage, pageIdx])
+
+  const cellIds = cells.map(cellId)
+
   return (
     <div className="si-spaces">
-      <BentoGrid>{cells}</BentoGrid>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={cellIds} strategy={rectSortingStrategy}>
+          <BentoGrid>
+            {cells.map((c) => (
+              <SortableCell key={cellId(c)} cell={c} />
+            ))}
+          </BentoGrid>
+        </SortableContext>
+      </DndContext>
       <nav className="si-bento-nav" aria-label="Spaces pages">
         <button
           type="button"
@@ -84,6 +217,7 @@ export function SpacesBento({ locations }: { locations: Location[] }) {
           ›
         </button>
       </nav>
+      {draggingId && <div className="si-spaces-hint">Drag onto another tile to swap, or onto an empty slot to move.</div>}
     </div>
   )
 }
