@@ -91,6 +91,65 @@ function DraggableLocationCell({ loc }: { loc: Location }) {
   )
 }
 
+function PageLabel({
+  pageIndex,
+  name,
+  onSave,
+}: {
+  pageIndex: number
+  name: string
+  onSave: (pageIndex: number, name: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(name)
+
+  useEffect(() => {
+    setDraft(name)
+  }, [name, pageIndex])
+
+  const commit = () => {
+    setEditing(false)
+    if (draft.trim() !== name) onSave(pageIndex, draft.trim())
+  }
+
+  if (editing) {
+    return (
+      <input
+        className="si-page-label-input"
+        type="text"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            commit()
+          }
+          if (e.key === 'Escape') {
+            e.preventDefault()
+            setDraft(name)
+            setEditing(false)
+          }
+        }}
+        autoFocus
+        maxLength={60}
+        placeholder="Name this page (e.g. Living Room)"
+      />
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      className={`si-page-label ${name ? '' : 'si-page-label--empty'}`}
+      onClick={() => setEditing(true)}
+      title="Click to rename this page"
+    >
+      {name || '+ Name this page'}
+    </button>
+  )
+}
+
 function DroppableAddCell({ slot }: { slot: number }) {
   const { setNodeRef, isOver } = useDroppable({ id: `add:${slot}` })
   const style: React.CSSProperties = {
@@ -111,15 +170,28 @@ function normalize(locs: Location[]): Location[] {
   return locs.map((l) => ({ ...l, id: String(l.id) }))
 }
 
-export function SpacesBento({ locations: propLocations }: { locations: Location[] }) {
+type PageName = { id: string; pageIndex: number; name: string }
+
+export function SpacesBento({
+  locations: propLocations,
+  initialPageNames = [],
+}: {
+  locations: Location[]
+  initialPageNames?: PageName[]
+}) {
   const router = useRouter()
   const [pageIdx, setPageIdx] = useState(0)
   const [activeDragLoc, setActiveDragLoc] = useState<Location | null>(null)
   const [locations, setLocations] = useState<Location[]>(() => normalize(propLocations))
+  const [pageNames, setPageNames] = useState<PageName[]>(initialPageNames)
 
   useEffect(() => {
     setLocations(normalize(propLocations))
   }, [propLocations])
+
+  useEffect(() => {
+    setPageNames(initialPageNames)
+  }, [initialPageNames])
 
   // Build slot map keyed by sortOrder, plus reverse locId→slot lookup.
   const slotMap = new Map<number, Location>()
@@ -241,8 +313,70 @@ export function SpacesBento({ locations: propLocations }: { locations: Location[
     if (safePage !== pageIdx) setPageIdx(safePage)
   }, [safePage, pageIdx])
 
+  const handleSavePageName = async (idx: number, newName: string) => {
+    const trimmed = newName.trim()
+    const existing = pageNames.find((p) => p.pageIndex === idx)
+
+    if (trimmed === '') {
+      // Empty name → delete the record if one exists
+      if (existing) {
+        setPageNames((prev) => prev.filter((p) => p.id !== existing.id))
+        try {
+          await fetch(`/api/space-pages/${existing.id}`, { method: 'DELETE' })
+        } catch { /* ignore */ }
+      }
+      return
+    }
+
+    if (existing) {
+      if (existing.name === trimmed) return
+      const before = existing.name
+      setPageNames((prev) => prev.map((p) => (p.id === existing.id ? { ...p, name: trimmed } : p)))
+      try {
+        const res = await fetch(`/api/space-pages/${existing.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: trimmed }),
+        })
+        if (!res.ok) {
+          setPageNames((prev) => prev.map((p) => (p.id === existing.id ? { ...p, name: before } : p)))
+        }
+      } catch {
+        setPageNames((prev) => prev.map((p) => (p.id === existing.id ? { ...p, name: before } : p)))
+      }
+    } else {
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+      setPageNames((prev) => [...prev, { id: tempId, pageIndex: idx, name: trimmed }])
+      try {
+        const res = await fetch('/api/space-pages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pageIndex: idx, name: trimmed }),
+        })
+        if (!res.ok) {
+          setPageNames((prev) => prev.filter((p) => p.id !== tempId))
+          return
+        }
+        const data = await res.json()
+        const real = data?.doc
+        if (real?.id) {
+          setPageNames((prev) =>
+            prev.map((p) =>
+              p.id === tempId ? { id: String(real.id), pageIndex: idx, name: real.name } : p,
+            ),
+          )
+        }
+      } catch {
+        setPageNames((prev) => prev.filter((p) => p.id !== tempId))
+      }
+    }
+  }
+
+  const currentPageName = pageNames.find((p) => p.pageIndex === safePage)?.name ?? ''
+
   return (
     <div className="si-spaces">
+      <PageLabel pageIndex={safePage} name={currentPageName} onSave={handleSavePageName} />
       <DndContext
         sensors={sensors}
         collisionDetection={pointerWithin}

@@ -18,7 +18,7 @@ export default async function HomePage() {
     redirect('/signup')
   }
 
-  const [topLocationsRes, allLocationsRes, allItemsRes, categoriesRes, tagsRes] = await Promise.all([
+  const [topLocationsRes, allLocationsRes, allItemsRes, categoriesRes, tagsRes, spacePagesRes] = await Promise.all([
     payload.find({
       collection: 'locations',
       where: { parent: { exists: false } },
@@ -43,6 +43,7 @@ export default async function HomePage() {
     }),
     payload.find({ collection: 'categories', sort: 'name', limit: 200, depth: 0, user }),
     payload.find({ collection: 'tags', sort: 'name', limit: 500, depth: 0, user }),
+    payload.find({ collection: 'space-pages', sort: 'pageIndex', limit: 100, depth: 0, user }),
   ])
 
   const topLocations = topLocationsRes.docs
@@ -50,6 +51,11 @@ export default async function HomePage() {
   const allItems = allItemsRes.docs.map((i) => ({ ...i, id: String(i.id) }))
   const categories = categoriesRes.docs.map((c) => ({ id: String(c.id), name: c.name, color: (c as { color?: string | null }).color ?? null }))
   const tags = tagsRes.docs.map((t) => ({ id: String(t.id), name: t.name }))
+  const pageNames = spacePagesRes.docs.map((sp) => ({
+    id: String(sp.id),
+    pageIndex: (sp as { pageIndex: number }).pageIndex,
+    name: sp.name,
+  }))
 
   const heroTiles = pickRandomTiles(4)
 
@@ -82,7 +88,7 @@ export default async function HomePage() {
 
         <section className="si-section">
           <h2 className="si-section-title">Spaces</h2>
-          <SpacesBento locations={topLocations as never[]} />
+          <SpacesBento locations={topLocations as never[]} initialPageNames={pageNames} />
         </section>
       </ItemsBoard>
     </main>
