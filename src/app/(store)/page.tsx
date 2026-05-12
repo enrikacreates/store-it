@@ -53,8 +53,8 @@ export default async function HomePage() {
   const tags = tagsRes.docs.map((t) => ({ id: String(t.id), name: t.name }))
   const pageNames = spacePagesRes.docs.map((sp) => ({
     id: String(sp.id),
-    pageIndex: (sp as { pageIndex: number }).pageIndex,
-    name: sp.name,
+    pageIndex: (sp as unknown as { pageIndex: number }).pageIndex,
+    name: (sp as unknown as { name: string }).name,
   }))
 
   const heroTiles = pickRandomTiles(4)
