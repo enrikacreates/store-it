@@ -12,6 +12,7 @@ import { Locations } from './collections/Locations'
 import { Items } from './collections/Items'
 import { Categories } from './collections/Categories'
 import { Tags } from './collections/Tags'
+import { SpacePages } from './collections/SpacePages'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -27,7 +28,7 @@ export default buildConfig({
     },
   },
 
-  collections: [Users, Media, Locations, Items, Categories, Tags],
+  collections: [Users, Media, Locations, Items, Categories, Tags, SpacePages],
 
   editor: lexicalEditor(),
 
