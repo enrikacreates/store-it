@@ -30,6 +30,7 @@ type Location = {
   primarilyFor?: string | null
   description?: string | null
   image?: Media | string | null
+  imageFocalY?: number | null
   accessPattern?: string | null
   gallery?: GalleryEntry[] | null
   sortOrder?: number | null
@@ -88,6 +89,9 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
   const [accessPattern, setAccessPattern] = useState<string>(location?.accessPattern ?? '')
   const [notes, setNotes] = useState(location?.description ?? '')
   const [slot, setSlot] = useState<number>(initialSlot)
+  const [focalY, setFocalY] = useState<number>(
+    typeof location?.imageFocalY === 'number' ? location.imageFocalY : 50,
+  )
   const [isHotspot, setIsHotspot] = useState<boolean>(!!location?.isHotspot)
   const [hotspotImageId, setHotspotImageId] = useState<string | null>(initialHotspotId)
   const [hotspotImageUrl, setHotspotImageUrl] = useState<string | null>(initialHotspotUrl)
@@ -111,6 +115,7 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     setAccessPattern(location?.accessPattern ?? '')
     setNotes(location?.description ?? '')
     setSlot(initialSlot)
+    setFocalY(typeof location?.imageFocalY === 'number' ? location.imageFocalY : 50)
     setLeadImageId(initialLeadId)
     setLeadImageUrl(initialLeadUrl)
     setGallery(location?.gallery ?? [])
@@ -290,6 +295,7 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
           primarilyFor: primarilyFor.trim() || null,
           description: notes.trim() || null,
           image: toIdNum(leadImageId),
+          imageFocalY: focalY,
           accessPattern: accessPattern || null,
           gallery: galleryPayload,
           sortOrder: Number.isFinite(slot) && slot >= 0 ? slot : 0,
@@ -329,6 +335,7 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     notes,
     accessPattern,
     leadImageId,
+    focalY,
     slot,
     gallery,
     isHotspot,
@@ -373,6 +380,34 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
           style={{ display: 'none' }}
         />
       </div>
+
+      {/* Tile crop position slider — preview how the lead image will crop on the dashboard tile */}
+      {leadImageUrl && editing && (
+        <div className="si-edit-row si-focal">
+          <span className="si-edit-label">Tile crop position</span>
+          <div className="si-focal-preview">
+            <img
+              src={leadImageUrl}
+              alt=""
+              style={{ objectPosition: `50% ${focalY}%` }}
+            />
+          </div>
+          <input
+            className="si-focal-slider"
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={focalY}
+            onChange={(e) => setFocalY(Number(e.target.value))}
+          />
+          <div className="si-focal-labels">
+            <span>Show top</span>
+            <span>Center</span>
+            <span>Show bottom</span>
+          </div>
+        </div>
+      )}
 
       {/* Name + theme + access pattern */}
       <header className="si-detail-header">

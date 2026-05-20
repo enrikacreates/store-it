@@ -37,6 +37,16 @@ export const Locations: CollectionConfig = {
       },
     },
     {
+      name: 'imageFocalY',
+      type: 'number',
+      defaultValue: 50,
+      min: 0,
+      max: 100,
+      admin: {
+        description: 'Vertical focal point of the lead image on the dashboard tile (0 = top, 100 = bottom).',
+      },
+    },
+    {
       name: 'gallery',
       type: 'array',
       label: 'Gallery',
