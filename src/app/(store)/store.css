@@ -972,6 +972,48 @@ button.si-cat-chip:hover {
   letter-spacing: 0.04em;
 }
 
+/* ---- Hotspot toggle + photo ---- */
+.si-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.si-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--orange);
+  cursor: pointer;
+}
+.si-toggle-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.si-toggle-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: help;
+}
+.si-hotspot-photo {
+  margin-top: 8px;
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 4 / 3;
+}
+
 .si-detail-notes {
   width: 100%;
   font-size: 14px;

@@ -32,6 +32,8 @@ type Location = {
   accessPattern?: string | null
   gallery?: GalleryEntry[] | null
   sortOrder?: number | null
+  isHotspot?: boolean | null
+  hotspotImage?: Media | string | null
 }
 
 type Props = {
@@ -60,6 +62,11 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
 
   const initialLeadId = location && typeof location.image === 'object' && location.image ? (location.image.id ?? null) : null
   const initialLeadUrl = mediaUrl(location?.image, 'hero')
+  const initialHotspotId =
+    location && typeof location.hotspotImage === 'object' && location.hotspotImage
+      ? (location.hotspotImage.id ?? null)
+      : null
+  const initialHotspotUrl = mediaUrl(location?.hotspotImage, 'card')
 
   const initialSlot = isCreating
     ? (creatingSlot ?? 0)
@@ -69,6 +76,11 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
   const [accessPattern, setAccessPattern] = useState<string>(location?.accessPattern ?? '')
   const [notes, setNotes] = useState(location?.description ?? '')
   const [slot, setSlot] = useState<number>(initialSlot)
+  const [isHotspot, setIsHotspot] = useState<boolean>(!!location?.isHotspot)
+  const [hotspotImageId, setHotspotImageId] = useState<string | null>(initialHotspotId)
+  const [hotspotImageUrl, setHotspotImageUrl] = useState<string | null>(initialHotspotUrl)
+  const [uploadingHotspot, setUploadingHotspot] = useState(false)
+  const hotspotInput = useRef<HTMLInputElement>(null)
   const [leadImageId, setLeadImageId] = useState<string | null>(initialLeadId)
   const [leadImageUrl, setLeadImageUrl] = useState<string | null>(initialLeadUrl)
   const [gallery, setGallery] = useState<GalleryEntry[]>(location?.gallery ?? [])
@@ -89,6 +101,9 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     setLeadImageId(initialLeadId)
     setLeadImageUrl(initialLeadUrl)
     setGallery(location?.gallery ?? [])
+    setIsHotspot(!!location?.isHotspot)
+    setHotspotImageId(initialHotspotId)
+    setHotspotImageUrl(initialHotspotUrl)
     setError('')
   }
 
@@ -122,6 +137,19 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
       setLeadImageUrl(out.url)
     }
     setUploadingLead(false)
+  }
+
+  const handleHotspotFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingHotspot(true)
+    setError('')
+    const out = await uploadFile(file)
+    if (out) {
+      setHotspotImageId(out.id)
+      setHotspotImageUrl(out.url)
+    }
+    setUploadingHotspot(false)
   }
 
   const handleGalleryFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -167,6 +195,8 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
         accessPattern: accessPattern || null,
         gallery: galleryPayload,
         sortOrder: Number.isFinite(slot) && slot >= 0 ? slot : 0,
+        isHotspot: isHotspot,
+        hotspotImage: isHotspot ? hotspotImageId || null : null,
       }
 
       const url = isCreating ? '/api/locations' : `/api/locations/${location!.id}`
@@ -218,7 +248,7 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
   // Skips while file uploads are in flight (those have their own loading state)
   // and during create mode (which uses the explicit Create button).
   useEffect(() => {
-    if (isCreating || !location || uploadingLead || uploadingGallery) return
+    if (isCreating || !location || uploadingLead || uploadingGallery || uploadingHotspot) return
     if (isFirstAutosaveRun.current) {
       isFirstAutosaveRun.current = false
       return
@@ -243,6 +273,8 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
             accessPattern: accessPattern || null,
             gallery: galleryPayload,
             sortOrder: Number.isFinite(slot) && slot >= 0 ? slot : 0,
+            isHotspot: isHotspot,
+            hotspotImage: isHotspot ? hotspotImageId || null : null,
           }),
         })
         if (res.ok) {
@@ -259,7 +291,19 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
 
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, primarilyFor, notes, accessPattern, leadImageId, slot, gallery, isCreating, location?.id])
+  }, [
+    name,
+    primarilyFor,
+    notes,
+    accessPattern,
+    leadImageId,
+    slot,
+    gallery,
+    isHotspot,
+    hotspotImageId,
+    isCreating,
+    location?.id,
+  ])
 
   return (
     <div className="si-detail">
@@ -348,6 +392,48 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="si-edit-row">
+              <label className="si-toggle">
+                <input
+                  type="checkbox"
+                  checked={isHotspot}
+                  onChange={(e) => setIsHotspot(e.target.checked)}
+                />
+                <span className="si-toggle-text">
+                  Hotspot?
+                  <span className="si-toggle-tip" title="A place that attracts clutter — flag problem areas you keep needing to clear">ⓘ</span>
+                </span>
+              </label>
+              {isHotspot && (
+                <>
+                  <button
+                    type="button"
+                    className="si-tile-edit-photo si-hotspot-photo"
+                    onClick={() => hotspotInput.current?.click()}
+                    aria-label="Upload hotspot photo"
+                  >
+                    {hotspotImageUrl ? (
+                      <img src={hotspotImageUrl} alt="" />
+                    ) : (
+                      <span className="si-tile-edit-photo-empty">
+                        📷 Show what it looks like when cluttered
+                      </span>
+                    )}
+                    {uploadingHotspot && (
+                      <span className="si-tile-edit-photo-loading">Uploading…</span>
+                    )}
+                  </button>
+                  <input
+                    ref={hotspotInput}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleHotspotFile}
+                    style={{ display: 'none' }}
+                  />
+                </>
+              )}
             </div>
           </>
         ) : (

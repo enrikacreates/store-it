@@ -64,6 +64,23 @@ export const Locations: CollectionConfig = {
       },
     },
     {
+      name: 'isHotspot',
+      type: 'checkbox',
+      label: 'Hotspot',
+      defaultValue: false,
+      admin: {
+        description: 'A place that attracts clutter — track problem areas you keep needing to clear.',
+      },
+    },
+    {
+      name: 'hotspotImage',
+      type: 'upload',
+      relationTo: 'media',
+      admin: {
+        description: 'A photo showing what this space looks like when cluttered.',
+      },
+    },
+    {
       name: 'accessPattern',
       type: 'select',
       label: 'Access frequency',
