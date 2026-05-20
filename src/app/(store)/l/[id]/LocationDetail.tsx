@@ -67,7 +67,11 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     location && typeof location.hotspotImage === 'object' && location.hotspotImage
       ? (location.hotspotImage.id ?? null)
       : null
-  const initialHotspotUrl = mediaUrl(location?.hotspotImage, 'card')
+  // Use ORIGINAL upload URL for hotspot so vertical photos keep their natural aspect ratio.
+  const initialHotspotUrl =
+    location && typeof location.hotspotImage === 'object' && location.hotspotImage
+      ? (location.hotspotImage.url ?? mediaUrl(location.hotspotImage, 'hero'))
+      : null
 
   const initialSlot = isCreating
     ? (creatingSlot ?? 0)
@@ -109,7 +113,9 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     setError('')
   }
 
-  const uploadFile = async (file: File): Promise<{ id: string; url: string } | null> => {
+  const uploadFile = async (
+    file: File,
+  ): Promise<{ id: string; url: string; originalUrl: string } | null> => {
     const fd = new FormData()
     fd.append('file', file)
     fd.append('alt', name || 'space photo')
@@ -125,6 +131,7 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     return {
       id: String(doc.id),
       url: doc.sizes?.hero?.url || doc.sizes?.card?.url || doc.url || '',
+      originalUrl: doc.url || doc.sizes?.hero?.url || doc.sizes?.card?.url || '',
     }
   }
 
@@ -149,7 +156,8 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     const out = await uploadFile(file)
     if (out) {
       setHotspotImageId(out.id)
-      setHotspotImageUrl(out.url)
+      // Use the original (uncropped) URL so vertical photos show in natural aspect.
+      setHotspotImageUrl(out.originalUrl)
     }
     setUploadingHotspot(false)
   }
@@ -260,33 +268,50 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     const timer = setTimeout(async () => {
       setAutosaveStatus('saving')
       try {
-        const galleryPayload = gallery.map((g) => ({
-          image: typeof g.image === 'object' ? (g.image as Media).id : g.image,
-          caption: g.caption || '',
-        }))
+        const toIdNum = (v: string | number | null | undefined): number | null => {
+          if (v === null || v === undefined || v === '') return null
+          const n = typeof v === 'number' ? v : Number.parseInt(String(v), 10)
+          return Number.isFinite(n) ? n : null
+        }
+        const galleryPayload = gallery.map((g) => {
+          const rawId = typeof g.image === 'object' ? (g.image as Media).id : g.image
+          return {
+            image: toIdNum(rawId),
+            caption: g.caption || '',
+          }
+        })
+        const body = {
+          name: name.trim(),
+          primarilyFor: primarilyFor.trim() || null,
+          description: notes.trim() || null,
+          image: toIdNum(leadImageId),
+          accessPattern: accessPattern || null,
+          gallery: galleryPayload,
+          sortOrder: Number.isFinite(slot) && slot >= 0 ? slot : 0,
+          isHotspot: isHotspot,
+          hotspotImage: isHotspot ? toIdNum(hotspotImageId) : null,
+        }
+        console.log('[autosave] PATCH body', body, {
+          leadImageId,
+          hotspotImageId,
+          typeofHotspot: typeof hotspotImageId,
+        })
         const res = await fetch(`/api/locations/${location.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: name.trim(),
-            primarilyFor: primarilyFor.trim() || null,
-            description: notes.trim() || null,
-            image: leadImageId || null,
-            accessPattern: accessPattern || null,
-            gallery: galleryPayload,
-            sortOrder: Number.isFinite(slot) && slot >= 0 ? slot : 0,
-            isHotspot: isHotspot,
-            hotspotImage: isHotspot ? hotspotImageId || null : null,
-          }),
+          body: JSON.stringify(body),
         })
         if (res.ok) {
           setAutosaveStatus('saved')
           if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current)
           savedTimeoutRef.current = setTimeout(() => setAutosaveStatus('idle'), 2000)
         } else {
+          const data = await res.json().catch(() => ({}))
+          console.error('[autosave] PATCH failed', res.status, data)
           setAutosaveStatus('error')
         }
-      } catch {
+      } catch (err) {
+        console.error('[autosave] exception', err)
         setAutosaveStatus('error')
       }
     }, 1200)
