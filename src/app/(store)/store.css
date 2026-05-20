@@ -972,6 +972,61 @@ button.si-cat-chip:hover {
   letter-spacing: 0.04em;
 }
 
+/* ---- Lightbox ---- */
+.si-lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px 40px;
+  cursor: zoom-out;
+}
+.si-lightbox-inner {
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  cursor: default;
+}
+.si-lightbox-inner img {
+  max-width: 100%;
+  max-height: 80vh;
+  object-fit: contain;
+  display: block;
+  border-radius: 8px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+.si-lightbox-caption {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  text-align: center;
+  margin: 0;
+  max-width: 600px;
+}
+.si-lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  transition: background 0.15s ease;
+  z-index: 1;
+}
+.si-lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
 /* ---- Hotspot toggle + photo ---- */
 .si-toggle {
   display: inline-flex;
@@ -1077,6 +1132,35 @@ button.si-cat-chip:hover {
 }
 .si-hotspot-photo .si-tile-edit-photo-empty {
   padding: 40px 16px;
+}
+.si-hotspot-photo-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 8px;
+  max-width: 360px;
+}
+.si-hotspot-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ---- Gallery image button (lightbox trigger) ---- */
+.si-gallery-img-btn {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: zoom-in;
+}
+.si-gallery-img-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .si-detail-notes {

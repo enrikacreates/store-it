@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ItemRow } from '../../components/ItemRow'
+import { Lightbox } from '../../components/Lightbox'
 import { ACCESS_PATTERNS } from '../../accessPatterns'
 
 type Media = { id: string; url?: string; sizes?: { card?: { url?: string }; hero?: { url?: string }; thumbnail?: { url?: string } } }
@@ -81,6 +82,7 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
   const [hotspotImageUrl, setHotspotImageUrl] = useState<string | null>(initialHotspotUrl)
   const [uploadingHotspot, setUploadingHotspot] = useState(false)
   const hotspotInput = useRef<HTMLInputElement>(null)
+  const [lightbox, setLightbox] = useState<{ src: string; caption?: string | null } | null>(null)
   const [leadImageId, setLeadImageId] = useState<string | null>(initialLeadId)
   const [leadImageUrl, setLeadImageUrl] = useState<string | null>(initialLeadUrl)
   const [gallery, setGallery] = useState<GalleryEntry[]>(location?.gallery ?? [])
@@ -410,24 +412,52 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
                 </span>
               </label>
               {isHotspot && (
-                <>
-                  <button
-                    type="button"
-                    className="si-tile-edit-photo si-hotspot-photo"
-                    onClick={() => hotspotInput.current?.click()}
-                    aria-label="Upload hotspot photo"
-                  >
-                    {hotspotImageUrl ? (
-                      <img src={hotspotImageUrl} alt="" />
-                    ) : (
+                <div className="si-hotspot-photo-wrap">
+                  {hotspotImageUrl ? (
+                    <>
+                      <button
+                        type="button"
+                        className="si-hotspot-photo"
+                        onClick={() => setLightbox({ src: hotspotImageUrl, caption: 'Hotspot photo' })}
+                        aria-label="View hotspot photo full size"
+                      >
+                        <img src={hotspotImageUrl} alt="" />
+                      </button>
+                      <div className="si-hotspot-actions">
+                        <button
+                          type="button"
+                          className="si-btn si-btn--ghost si-btn--sm"
+                          onClick={() => hotspotInput.current?.click()}
+                        >
+                          Replace photo
+                        </button>
+                        <button
+                          type="button"
+                          className="si-btn si-btn--danger si-btn--sm"
+                          onClick={() => {
+                            setHotspotImageId(null)
+                            setHotspotImageUrl(null)
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="si-tile-edit-photo si-hotspot-photo"
+                      onClick={() => hotspotInput.current?.click()}
+                      aria-label="Upload hotspot photo"
+                    >
                       <span className="si-tile-edit-photo-empty">
                         📷 Show what it looks like when cluttered
                       </span>
-                    )}
-                    {uploadingHotspot && (
-                      <span className="si-tile-edit-photo-loading">Uploading…</span>
-                    )}
-                  </button>
+                      {uploadingHotspot && (
+                        <span className="si-tile-edit-photo-loading">Uploading…</span>
+                      )}
+                    </button>
+                  )}
                   <input
                     ref={hotspotInput}
                     type="file"
@@ -435,7 +465,7 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
                     onChange={handleHotspotFile}
                     style={{ display: 'none' }}
                   />
-                </>
+                </div>
               )}
             </div>
           </>
@@ -470,9 +500,19 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
         <div className="si-gallery">
           {gallery.map((g, idx) => {
             const url = mediaUrl(g.image, 'card')
+            const fullUrl = mediaUrl(g.image, 'hero') || url
             return (
               <div className="si-gallery-cell" key={idx}>
-                {url ? <img src={url} alt={g.caption ?? ''} /> : null}
+                {url ? (
+                  <button
+                    type="button"
+                    className="si-gallery-img-btn"
+                    onClick={() => fullUrl && setLightbox({ src: fullUrl, caption: g.caption })}
+                    aria-label="View full size"
+                  >
+                    <img src={url} alt={g.caption ?? ''} />
+                  </button>
+                ) : null}
                 {editing && (
                   <button
                     type="button"
@@ -536,6 +576,14 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
             <p className="si-section-empty">No items here yet. Assign some on the dashboard.</p>
           )}
         </section>
+      )}
+
+      {lightbox && (
+        <Lightbox
+          src={lightbox.src}
+          caption={lightbox.caption}
+          onClose={() => setLightbox(null)}
+        />
       )}
 
       {/* Actions */}
