@@ -534,8 +534,13 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
         <h2 className="si-section-title">Gallery</h2>
         <div className="si-gallery">
           {gallery.map((g, idx) => {
-            const url = mediaUrl(g.image, 'card')
-            const fullUrl = mediaUrl(g.image, 'hero') || url
+            // Use original URL so vertical photos keep their natural aspect in the masonry layout
+            const originalUrl =
+              typeof g.image === 'object' && g.image
+                ? (g.image.url ?? mediaUrl(g.image, 'hero'))
+                : null
+            const url = originalUrl || mediaUrl(g.image, 'card')
+            const fullUrl = originalUrl || mediaUrl(g.image, 'hero') || url
             return (
               <div className="si-gallery-cell" key={idx}>
                 {url ? (
