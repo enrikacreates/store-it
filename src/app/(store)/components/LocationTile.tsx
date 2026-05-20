@@ -15,7 +15,9 @@ type Location = {
 
 export function LocationTile({ location }: { location: Location }) {
   const initialMedia = typeof location.image === 'object' && location.image !== null ? location.image : null
-  const initialImgUrl = initialMedia?.sizes?.card?.url || initialMedia?.sizes?.thumbnail?.url || initialMedia?.url || null
+  // Prefer the original URL so the focal-point slider actually has the full image to reposition.
+  // Falls back to sized variants if the original isn't available for some reason.
+  const initialImgUrl = initialMedia?.url || initialMedia?.sizes?.card?.url || initialMedia?.sizes?.thumbnail?.url || null
   const ap = accessPatternDef(location.accessPattern)
   const focalY = typeof location.imageFocalY === 'number' ? location.imageFocalY : 50
 
