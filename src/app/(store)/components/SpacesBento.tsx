@@ -184,6 +184,12 @@ export function SpacesBento({
   const [activeDragLoc, setActiveDragLoc] = useState<Location | null>(null)
   const [locations, setLocations] = useState<Location[]>(() => normalize(propLocations))
   const [pageNames, setPageNames] = useState<PageName[]>(initialPageNames)
+  // dnd-kit generates auto-incrementing aria IDs that mismatch between SSR and CSR.
+  // Defer rendering its context until after client mount to avoid hydration errors.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     setLocations(normalize(propLocations))
@@ -377,30 +383,43 @@ export function SpacesBento({
   return (
     <div className="si-spaces">
       <PageLabel pageIndex={safePage} name={currentPageName} onSave={handleSavePageName} />
-      <DndContext
-        sensors={sensors}
-        collisionDetection={pointerWithin}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        onDragCancel={() => setActiveDragLoc(null)}
-      >
+      {mounted ? (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={pointerWithin}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => setActiveDragLoc(null)}
+        >
+          <BentoGrid>
+            {cells.map((c) =>
+              c.kind === 'loc' ? (
+                <DraggableLocationCell key={cellId(c)} loc={c.loc} />
+              ) : (
+                <DroppableAddCell key={cellId(c)} slot={c.slot} />
+              ),
+            )}
+          </BentoGrid>
+          <DragOverlay dropAnimation={null}>
+            {activeDragLoc ? (
+              <div className="si-drag-overlay">
+                <LocationTile location={activeDragLoc as never} />
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      ) : (
+        // SSR + first client render: no DnD, plain tiles. Swapped in after mount.
         <BentoGrid>
           {cells.map((c) =>
             c.kind === 'loc' ? (
-              <DraggableLocationCell key={cellId(c)} loc={c.loc} />
+              <LocationTile key={cellId(c)} location={c.loc as never} />
             ) : (
-              <DroppableAddCell key={cellId(c)} slot={c.slot} />
+              <AddLocationTile key={cellId(c)} targetSlot={c.slot} />
             ),
           )}
         </BentoGrid>
-        <DragOverlay dropAnimation={null}>
-          {activeDragLoc ? (
-            <div className="si-drag-overlay">
-              <LocationTile location={activeDragLoc as never} />
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+      )}
       <nav className="si-bento-nav" aria-label="Spaces pages">
         <button
           type="button"
