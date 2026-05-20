@@ -52,6 +52,13 @@ function mediaUrl(m: Media | string | null | undefined, size: 'card' | 'hero' | 
   return m.sizes?.[size]?.url || m.sizes?.card?.url || m.sizes?.thumbnail?.url || m.url || null
 }
 
+/** Coerce a relationship ID to a number (Payload Postgres adapter requires numeric IDs). */
+function toIdNum(v: string | number | null | undefined): number | null {
+  if (v === null || v === undefined || v === '') return null
+  const n = typeof v === 'number' ? v : Number.parseInt(String(v), 10)
+  return Number.isFinite(n) ? n : null
+}
+
 export function LocationDetail({ location, creatingSlot, items, locations, tags, categories }: Props) {
   const router = useRouter()
   const isCreating = location === null
@@ -192,21 +199,24 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     setSaving(true)
     setError('')
     try {
-      const galleryPayload = gallery.map((g) => ({
-        image: typeof g.image === 'object' ? (g.image as Media).id : g.image,
-        caption: g.caption || '',
-      }))
+      const galleryPayload = gallery.map((g) => {
+        const rawId = typeof g.image === 'object' ? (g.image as Media).id : g.image
+        return {
+          image: toIdNum(rawId),
+          caption: g.caption || '',
+        }
+      })
 
       const body: Record<string, unknown> = {
         name: name.trim(),
         primarilyFor: primarilyFor.trim() || null,
         description: notes.trim() || null,
-        image: leadImageId || null,
+        image: toIdNum(leadImageId),
         accessPattern: accessPattern || null,
         gallery: galleryPayload,
         sortOrder: Number.isFinite(slot) && slot >= 0 ? slot : 0,
         isHotspot: isHotspot,
-        hotspotImage: isHotspot ? hotspotImageId || null : null,
+        hotspotImage: isHotspot ? toIdNum(hotspotImageId) : null,
       }
 
       const url = isCreating ? '/api/locations' : `/api/locations/${location!.id}`
@@ -268,11 +278,6 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     const timer = setTimeout(async () => {
       setAutosaveStatus('saving')
       try {
-        const toIdNum = (v: string | number | null | undefined): number | null => {
-          if (v === null || v === undefined || v === '') return null
-          const n = typeof v === 'number' ? v : Number.parseInt(String(v), 10)
-          return Number.isFinite(n) ? n : null
-        }
         const galleryPayload = gallery.map((g) => {
           const rawId = typeof g.image === 'object' ? (g.image as Media).id : g.image
           return {
