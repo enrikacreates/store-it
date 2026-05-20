@@ -305,6 +305,11 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     hotspotImageId,
     isCreating,
     location?.id,
+    // Include upload flags so when they flip from true→false (upload done),
+    // the autosave effect re-runs and can schedule the debounced save.
+    uploadingLead,
+    uploadingGallery,
+    uploadingHotspot,
   ])
 
   return (
