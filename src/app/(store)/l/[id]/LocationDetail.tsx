@@ -396,11 +396,14 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
 
             <div className="si-edit-row">
               <label className="si-toggle">
-                <input
-                  type="checkbox"
-                  checked={isHotspot}
-                  onChange={(e) => setIsHotspot(e.target.checked)}
-                />
+                <span className="si-switch">
+                  <input
+                    type="checkbox"
+                    checked={isHotspot}
+                    onChange={(e) => setIsHotspot(e.target.checked)}
+                  />
+                  <span className="si-switch-slider" aria-hidden />
+                </span>
                 <span className="si-toggle-text">
                   Hotspot?
                   <span className="si-toggle-tip" title="A place that attracts clutter — flag problem areas you keep needing to clear">ⓘ</span>

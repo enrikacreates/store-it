@@ -976,15 +976,53 @@ button.si-cat-chip:hover {
 .si-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   cursor: pointer;
   user-select: none;
 }
-.si-toggle input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--orange);
+
+/* iOS-style switch */
+.si-switch {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.si-switch input[type="checkbox"] {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+.si-switch-slider {
+  position: absolute;
+  inset: 0;
+  background: #d6d2cc;
+  border-radius: 999px;
   cursor: pointer;
+  transition: background 0.18s ease;
+}
+.si-switch-slider::before {
+  content: '';
+  position: absolute;
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  top: 3px;
+  background: #FFFFFF;
+  border-radius: 50%;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+.si-switch input:checked + .si-switch-slider {
+  background: var(--orange);
+}
+.si-switch input:checked + .si-switch-slider::before {
+  transform: translateX(18px);
+}
+.si-switch input:focus-visible + .si-switch-slider {
+  box-shadow: 0 0 0 3px rgba(250, 155, 100, 0.32);
 }
 .si-toggle-text {
   font-size: 14px;
