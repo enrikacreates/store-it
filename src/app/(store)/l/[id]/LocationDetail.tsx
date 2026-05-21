@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ItemRow } from '../../components/ItemRow'
-import { Lightbox } from '../../components/Lightbox'
+import { Lightbox, type LightboxImage } from '../../components/Lightbox'
 import { ACCESS_PATTERNS } from '../../accessPatterns'
 
 type Media = { id: string; url?: string; sizes?: { card?: { url?: string }; hero?: { url?: string }; thumbnail?: { url?: string } } }
@@ -31,11 +31,15 @@ type Location = {
   description?: string | null
   image?: Media | string | null
   imageFocalY?: number | null
+  imageFocalX?: number | null
+  imageZoom?: number | null
   accessPattern?: string | null
   gallery?: GalleryEntry[] | null
   sortOrder?: number | null
   isHotspot?: boolean | null
   hotspotImage?: Media | string | null
+  needsOrganizing?: boolean | null
+  organizeBy?: string | null
 }
 
 type Props = {
@@ -46,7 +50,14 @@ type Props = {
   locations: Loc[]
   tags: Tag[]
   categories: Cat[]
+  /** Optional list of named bento pages — used to render the breadcrumb. */
+  pageNames?: { pageIndex: number; name: string }[]
+  /** Unassigned items (no location) offered in the "assign existing" picker. */
+  unassignedItems?: { id: string; name: string }[]
 }
+
+/** Mirrors SpacesBento.PAGE_SIZE — keep these in sync. */
+const BENTO_PAGE_SIZE = 6
 
 function mediaUrl(m: Media | string | null | undefined, size: 'card' | 'hero' | 'thumbnail' = 'hero'): string | null {
   if (!m || typeof m !== 'object') return null
@@ -60,7 +71,7 @@ function toIdNum(v: string | number | null | undefined): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-export function LocationDetail({ location, creatingSlot, items, locations, tags, categories }: Props) {
+export function LocationDetail({ location, creatingSlot, items, locations, tags, categories, pageNames = [], unassignedItems = [] }: Props) {
   const router = useRouter()
   const isCreating = location === null
   const leadInput = useRef<HTMLInputElement>(null)
@@ -70,7 +81,12 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
   const [editing, setEditing] = useState(true)
 
   const initialLeadId = location && typeof location.image === 'object' && location.image ? (location.image.id ?? null) : null
-  const initialLeadUrl = mediaUrl(location?.image, 'hero')
+  // Use ORIGINAL upload URL so the focal-point slider has the full uncropped image to reposition.
+  // The pre-cropped 'hero' variant is already 16:9, leaving almost nothing to move vertically.
+  const initialLeadUrl =
+    location && typeof location.image === 'object' && location.image
+      ? (location.image.url ?? mediaUrl(location.image, 'hero'))
+      : null
   const initialHotspotId =
     location && typeof location.hotspotImage === 'object' && location.hotspotImage
       ? (location.hotspotImage.id ?? null)
@@ -92,12 +108,24 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
   const [focalY, setFocalY] = useState<number>(
     typeof location?.imageFocalY === 'number' ? location.imageFocalY : 50,
   )
+  const [focalX, setFocalX] = useState<number>(
+    typeof location?.imageFocalX === 'number' ? location.imageFocalX : 50,
+  )
+  const [zoom, setZoom] = useState<number>(
+    typeof location?.imageZoom === 'number' ? location.imageZoom : 100,
+  )
   const [isHotspot, setIsHotspot] = useState<boolean>(!!location?.isHotspot)
+  const [needsOrganizing, setNeedsOrganizing] = useState<boolean>(!!location?.needsOrganizing)
+  // Date input stores YYYY-MM-DD; we slice off any time portion from the API value.
+  const initialOrganizeBy = location?.organizeBy ? String(location.organizeBy).slice(0, 10) : ''
+  const [organizeBy, setOrganizeBy] = useState<string>(initialOrganizeBy)
   const [hotspotImageId, setHotspotImageId] = useState<string | null>(initialHotspotId)
   const [hotspotImageUrl, setHotspotImageUrl] = useState<string | null>(initialHotspotUrl)
   const [uploadingHotspot, setUploadingHotspot] = useState(false)
   const hotspotInput = useRef<HTMLInputElement>(null)
-  const [lightbox, setLightbox] = useState<{ src: string; caption?: string | null } | null>(null)
+  const [lightbox, setLightbox] = useState<{ images: LightboxImage[]; index: number } | null>(null)
+  // Tile crop drawer — collapsed by default so the gallery sits closer to the hero image.
+  const [showCrop, setShowCrop] = useState(false)
   const [leadImageId, setLeadImageId] = useState<string | null>(initialLeadId)
   const [leadImageUrl, setLeadImageUrl] = useState<string | null>(initialLeadUrl)
   const [gallery, setGallery] = useState<GalleryEntry[]>(location?.gallery ?? [])
@@ -106,6 +134,18 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  // Items in this space + the pool of unassigned items available to pull in. Kept in local
+  // state for optimistic add/assign/remove; router.refresh() re-syncs from the server after.
+  const [spaceItems, setSpaceItems] = useState<Item[]>(items)
+  const [availableItems, setAvailableItems] = useState<{ id: string; name: string }[]>(unassignedItems)
+  const [quickAddName, setQuickAddName] = useState('')
+  const [addingItem, setAddingItem] = useState(false)
+  useEffect(() => {
+    setSpaceItems(items)
+  }, [items])
+  useEffect(() => {
+    setAvailableItems(unassignedItems)
+  }, [unassignedItems])
   const isFirstAutosaveRun = useRef(true)
   const savedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -116,10 +156,14 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     setNotes(location?.description ?? '')
     setSlot(initialSlot)
     setFocalY(typeof location?.imageFocalY === 'number' ? location.imageFocalY : 50)
+    setFocalX(typeof location?.imageFocalX === 'number' ? location.imageFocalX : 50)
+    setZoom(typeof location?.imageZoom === 'number' ? location.imageZoom : 100)
     setLeadImageId(initialLeadId)
     setLeadImageUrl(initialLeadUrl)
     setGallery(location?.gallery ?? [])
     setIsHotspot(!!location?.isHotspot)
+    setNeedsOrganizing(!!location?.needsOrganizing)
+    setOrganizeBy(location?.organizeBy ? String(location.organizeBy).slice(0, 10) : '')
     setHotspotImageId(initialHotspotId)
     setHotspotImageUrl(initialHotspotUrl)
     setError('')
@@ -142,7 +186,8 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     if (!doc?.id) return null
     return {
       id: String(doc.id),
-      url: doc.sizes?.hero?.url || doc.sizes?.card?.url || doc.url || '',
+      // Prefer the original URL so the focal slider / hotspot / gallery preserve natural aspect.
+      url: doc.url || doc.sizes?.hero?.url || doc.sizes?.card?.url || '',
       originalUrl: doc.url || doc.sizes?.hero?.url || doc.sizes?.card?.url || '',
     }
   }
@@ -217,11 +262,16 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
         primarilyFor: primarilyFor.trim() || null,
         description: notes.trim() || null,
         image: toIdNum(leadImageId),
+        imageFocalY: focalY,
+        imageFocalX: focalX,
+        imageZoom: zoom,
         accessPattern: accessPattern || null,
         gallery: galleryPayload,
         sortOrder: Number.isFinite(slot) && slot >= 0 ? slot : 0,
         isHotspot: isHotspot,
         hotspotImage: isHotspot ? toIdNum(hotspotImageId) : null,
+        needsOrganizing: needsOrganizing,
+        organizeBy: needsOrganizing && organizeBy ? organizeBy : null,
       }
 
       const url = isCreating ? '/api/locations' : `/api/locations/${location!.id}`
@@ -239,7 +289,7 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
       }
       setSaving(false)
       // Save always returns to the dashboard.
-      router.push('/')
+      router.push(dashHrefForCurrent())
     } catch {
       setError('Something went wrong.')
       setSaving(false)
@@ -257,15 +307,139 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
         setSaving(false)
         return
       }
-      router.push('/')
+      router.push(dashHrefForCurrent())
     } catch {
       setError('Something went wrong.')
       setSaving(false)
     }
   }
 
+  /** Dashboard URL preserving the bento page this location lives on. */
+  const dashHrefForCurrent = () => {
+    const so = typeof location?.sortOrder === 'number' ? location.sortOrder : slot
+    const page = Math.max(0, Math.floor((so ?? 0) / BENTO_PAGE_SIZE))
+    return page > 0 ? `/?page=${page}` : '/'
+  }
+
   const handleCancel = () => {
     router.push('/')
+  }
+
+  // ---- Items: quick-add, assign existing, optimistic update/delete ----
+  const locIdNum = toIdNum(location?.id)
+
+  const handleQuickAddItem = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = quickAddName.trim()
+    if (!trimmed || !location || addingItem) return
+    setAddingItem(true)
+    setError('')
+    const tempId = `temp-${Date.now()}`
+    const optimistic: Item = { id: tempId, name: trimmed, location: { id: location.id, name: location.name } }
+    setSpaceItems((prev) => [optimistic, ...prev])
+    setQuickAddName('')
+    try {
+      const res = await fetch('/api/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed, location: locIdNum }),
+      })
+      if (!res.ok) {
+        setSpaceItems((prev) => prev.filter((i) => i.id !== tempId))
+        const data = await res.json().catch(() => ({}))
+        setError(data?.errors?.[0]?.message || 'Could not add item.')
+        setAddingItem(false)
+        return
+      }
+      const data = await res.json()
+      const real = data?.doc
+      if (real?.id) {
+        setSpaceItems((prev) => prev.map((i) => (i.id === tempId ? { ...real, id: String(real.id) } : i)))
+      }
+      setAddingItem(false)
+      router.refresh()
+    } catch {
+      setSpaceItems((prev) => prev.filter((i) => i.id !== tempId))
+      setError('Something went wrong.')
+      setAddingItem(false)
+    }
+  }
+
+  const handleAssignExisting = async (itemId: string) => {
+    if (!location || !itemId) return
+    const picked = availableItems.find((i) => i.id === itemId)
+    if (!picked) return
+    setError('')
+    // Optimistic: remove from the pool, add to this space.
+    setAvailableItems((prev) => prev.filter((i) => i.id !== itemId))
+    setSpaceItems((prev) => [{ id: picked.id, name: picked.name, location: { id: location.id, name: location.name } }, ...prev])
+    try {
+      const res = await fetch(`/api/items/${itemId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location: locIdNum }),
+      })
+      if (!res.ok) {
+        // Revert
+        setSpaceItems((prev) => prev.filter((i) => i.id !== itemId))
+        setAvailableItems((prev) => [picked, ...prev])
+        const data = await res.json().catch(() => ({}))
+        setError(data?.errors?.[0]?.message || 'Could not assign item.')
+        return
+      }
+      router.refresh()
+    } catch {
+      setSpaceItems((prev) => prev.filter((i) => i.id !== itemId))
+      setAvailableItems((prev) => [picked, ...prev])
+      setError('Something went wrong.')
+    }
+  }
+
+  const handleItemUpdate = async (
+    id: string,
+    updates: Partial<Item>,
+  ): Promise<{ ok: true } | { ok: false; error: string }> => {
+    const before = spaceItems.find((i) => i.id === id)
+    // If the item was reassigned to a different location, drop it from this list.
+    const newLoc = (updates as { location?: unknown }).location
+    const stillHere = newLoc != null && String(newLoc) === String(location?.id ?? '')
+    setSpaceItems((prev) =>
+      stillHere ? prev.map((i) => (i.id === id ? { ...i, ...updates } : i)) : prev.filter((i) => i.id !== id),
+    )
+    try {
+      const res = await fetch(`/api/items/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      })
+      if (!res.ok) {
+        if (before) setSpaceItems((prev) => (prev.some((i) => i.id === id) ? prev : [before, ...prev]))
+        const data = await res.json().catch(() => ({}))
+        return { ok: false, error: data?.errors?.[0]?.message || 'Could not save.' }
+      }
+      router.refresh()
+      return { ok: true }
+    } catch {
+      if (before) setSpaceItems((prev) => (prev.some((i) => i.id === id) ? prev : [before, ...prev]))
+      return { ok: false, error: 'Something went wrong.' }
+    }
+  }
+
+  const handleItemDelete = async (id: string): Promise<{ ok: true } | { ok: false; error: string }> => {
+    const before = spaceItems.find((i) => i.id === id)
+    setSpaceItems((prev) => prev.filter((i) => i.id !== id))
+    try {
+      const res = await fetch(`/api/items/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        if (before) setSpaceItems((prev) => [before, ...prev])
+        return { ok: false, error: 'Could not delete.' }
+      }
+      router.refresh()
+      return { ok: true }
+    } catch {
+      if (before) setSpaceItems((prev) => [before, ...prev])
+      return { ok: false, error: 'Something went wrong.' }
+    }
   }
 
   // ---- Autosave for existing spaces ----
@@ -296,11 +470,15 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
           description: notes.trim() || null,
           image: toIdNum(leadImageId),
           imageFocalY: focalY,
+          imageFocalX: focalX,
+          imageZoom: zoom,
           accessPattern: accessPattern || null,
           gallery: galleryPayload,
           sortOrder: Number.isFinite(slot) && slot >= 0 ? slot : 0,
           isHotspot: isHotspot,
           hotspotImage: isHotspot ? toIdNum(hotspotImageId) : null,
+          needsOrganizing: needsOrganizing,
+          organizeBy: needsOrganizing && organizeBy ? organizeBy : null,
         }
         console.log('[autosave] PATCH body', body, {
           leadImageId,
@@ -336,10 +514,14 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     accessPattern,
     leadImageId,
     focalY,
+    focalX,
+    zoom,
     slot,
     gallery,
     isHotspot,
     hotspotImageId,
+    needsOrganizing,
+    organizeBy,
     isCreating,
     location?.id,
     // Include upload flags so when they flip from true→false (upload done),
@@ -349,11 +531,40 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     uploadingHotspot,
   ])
 
+  // Flat list of all gallery photos (full-size URLs) for lightbox prev/next navigation.
+  const galleryLightboxImages: LightboxImage[] = gallery
+    .map((g): LightboxImage | null => {
+      const originalUrl =
+        typeof g.image === 'object' && g.image ? (g.image.url ?? mediaUrl(g.image, 'hero')) : null
+      const fullUrl = originalUrl || mediaUrl(g.image, 'hero') || mediaUrl(g.image, 'card')
+      return fullUrl ? { src: fullUrl, caption: g.caption ?? null } : null
+    })
+    .filter((x): x is LightboxImage => x !== null)
+
   return (
     <div className="si-detail">
-      <nav className="si-detail-crumb">
-        <Link href="/" className="si-crumb-link">← Dashboard</Link>
-      </nav>
+      {(() => {
+        // Compute which bento page this location lives on (based on its sortOrder),
+        // then build a Dashboard › Page Name › Location breadcrumb that returns to that page.
+        const sortOrder = typeof location?.sortOrder === 'number' ? location.sortOrder : slot
+        const bentoPage = Math.max(0, Math.floor((sortOrder ?? 0) / BENTO_PAGE_SIZE))
+        const dashHref = bentoPage > 0 ? `/?page=${bentoPage}` : '/'
+        const parentPageName = pageNames.find((p) => p.pageIndex === bentoPage)?.name ?? ''
+        const currentName = (name || location?.name || (isCreating ? 'New space' : 'Untitled')).trim()
+        return (
+          <nav className="si-detail-crumb" aria-label="Breadcrumb">
+            <Link href={dashHref} className="si-crumb-link">← Dashboard</Link>
+            {parentPageName && (
+              <>
+                <span className="si-crumb-sep" aria-hidden>›</span>
+                <Link href={dashHref} className="si-crumb-link">{parentPageName}</Link>
+              </>
+            )}
+            <span className="si-crumb-sep" aria-hidden>›</span>
+            <span className="si-crumb-current" aria-current="page">{currentName}</span>
+          </nav>
+        )
+      })()}
 
       {/* Lead hero */}
       <div className="si-detail-hero">
@@ -379,192 +590,115 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
           onChange={handleLeadFile}
           style={{ display: 'none' }}
         />
+        {/* Crop drawer toggle — small icon button overlaid on the hero, opens the slider drawer below. */}
+        {leadImageUrl && editing && (
+          <button
+            type="button"
+            className={`si-hero-crop-toggle ${showCrop ? 'is-open' : ''}`}
+            onClick={() => setShowCrop((v) => !v)}
+            aria-expanded={showCrop}
+            aria-controls="si-crop-drawer"
+            title={showCrop ? 'Hide tile crop controls' : 'Adjust tile crop'}
+            aria-label={showCrop ? 'Hide tile crop controls' : 'Adjust tile crop'}
+          >
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+              {/* Simple crop-marks icon */}
+              <path d="M4 1.5v10.5a.5.5 0 0 0 .5.5H14.5" strokeLinecap="round" />
+              <path d="M1.5 4H12a.5.5 0 0 1 .5.5V14.5" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
       </div>
 
-      {/* Tile crop position slider — preview how the lead image will crop on the dashboard tile */}
-      {leadImageUrl && editing && (
-        <div className="si-edit-row si-focal">
+      {/* Tile crop position sliders — collapsible drawer; preview how the lead image will crop on the dashboard tile.
+          Horizontal (X) handles left/right framing; vertical (Y) handles top/bottom; Zoom magnifies around the focal point. */}
+      {leadImageUrl && editing && showCrop && (
+        <div className="si-edit-row si-focal" id="si-crop-drawer">
           <span className="si-edit-label">Tile crop position</span>
           <div className="si-focal-preview">
             <img
               src={leadImageUrl}
               alt=""
-              style={{ objectPosition: `50% ${focalY}%` }}
+              style={{
+                objectPosition: `${focalX}% ${focalY}%`,
+                // Zoom AROUND the focal point so the chosen area stays in view as you zoom in.
+                transform: `scale(${zoom / 100})`,
+                transformOrigin: `${focalX}% ${focalY}%`,
+              }}
             />
           </div>
-          <input
-            className="si-focal-slider"
-            type="range"
-            min={0}
-            max={100}
-            step={1}
-            value={focalY}
-            onChange={(e) => setFocalY(Number(e.target.value))}
-          />
-          <div className="si-focal-labels">
-            <span>Show top</span>
-            <span>Center</span>
-            <span>Show bottom</span>
+
+          <div className="si-focal-axis">
+            <span className="si-focal-axis-label">Left ↔ Right</span>
+            <input
+              className="si-focal-slider"
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={focalX}
+              onChange={(e) => setFocalX(Number(e.target.value))}
+              aria-label="Horizontal crop position"
+            />
+            <div className="si-focal-labels">
+              <span>Show left</span>
+              <span>Center</span>
+              <span>Show right</span>
+            </div>
+          </div>
+
+          <div className="si-focal-axis">
+            <span className="si-focal-axis-label">Top ↕ Bottom</span>
+            <input
+              className="si-focal-slider"
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={focalY}
+              onChange={(e) => setFocalY(Number(e.target.value))}
+              aria-label="Vertical crop position"
+            />
+            <div className="si-focal-labels">
+              <span>Show top</span>
+              <span>Center</span>
+              <span>Show bottom</span>
+            </div>
+          </div>
+
+          <div className="si-focal-axis">
+            <span className="si-focal-axis-label">
+              Zoom
+              <button
+                type="button"
+                className="si-focal-zoom-reset"
+                onClick={() => setZoom(100)}
+                disabled={zoom === 100}
+                aria-label="Reset zoom to fit"
+              >
+                Reset
+              </button>
+            </span>
+            <input
+              className="si-focal-slider"
+              type="range"
+              min={100}
+              max={300}
+              step={5}
+              value={zoom}
+              onChange={(e) => setZoom(Number(e.target.value))}
+              aria-label="Zoom level"
+            />
+            <div className="si-focal-labels">
+              <span>Fit (1×)</span>
+              <span>{(zoom / 100).toFixed(2)}×</span>
+              <span>3×</span>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Name + theme + access pattern */}
-      <header className="si-detail-header">
-        {editing ? (
-          <>
-            <input
-              className="si-field si-detail-name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={80}
-              placeholder="Space name"
-              autoFocus={isCreating}
-            />
-            <input
-              className="si-field si-detail-theme"
-              type="text"
-              value={primarilyFor}
-              onChange={(e) => setPrimarilyFor(e.target.value)}
-              maxLength={120}
-              placeholder="Theme — what belongs here?"
-            />
-            <div className="si-edit-row">
-              <span className="si-edit-label">Slot</span>
-              <div className="si-slot-row">
-                <input
-                  className="si-field si-slot-input"
-                  type="number"
-                  min={1}
-                  value={slot + 1}
-                  onChange={(e) => {
-                    const n = Number.parseInt(e.target.value, 10)
-                    setSlot(Number.isFinite(n) && n >= 1 ? n - 1 : 0)
-                  }}
-                />
-                <span className="si-slot-helper">
-                  Page {Math.floor(slot / 6) + 1} · position {(slot % 6) + 1}
-                </span>
-              </div>
-            </div>
-
-            <div className="si-edit-row">
-              <span className="si-edit-label">Access frequency</span>
-              <div className="si-tagpicker">
-                {ACCESS_PATTERNS.map((p) => (
-                  <button
-                    key={p.value}
-                    type="button"
-                    className={`si-tagchip ${accessPattern === p.value ? 'is-on' : ''}`}
-                    style={accessPattern === p.value ? { background: p.color, color: p.textColor } : undefined}
-                    onClick={() => setAccessPattern(accessPattern === p.value ? '' : p.value)}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="si-edit-row">
-              <label className="si-toggle">
-                <span className="si-switch">
-                  <input
-                    type="checkbox"
-                    checked={isHotspot}
-                    onChange={(e) => setIsHotspot(e.target.checked)}
-                  />
-                  <span className="si-switch-slider" aria-hidden />
-                </span>
-                <span className="si-toggle-text">
-                  Hotspot?
-                  <span className="si-toggle-tip" title="A place that attracts clutter — flag problem areas you keep needing to clear">ⓘ</span>
-                </span>
-              </label>
-              {isHotspot && (
-                <div className="si-hotspot-photo-wrap">
-                  {hotspotImageUrl ? (
-                    <>
-                      <button
-                        type="button"
-                        className="si-hotspot-photo"
-                        onClick={() => setLightbox({ src: hotspotImageUrl, caption: 'Hotspot photo' })}
-                        aria-label="View hotspot photo full size"
-                      >
-                        <img src={hotspotImageUrl} alt="" />
-                      </button>
-                      <div className="si-hotspot-actions">
-                        <button
-                          type="button"
-                          className="si-btn si-btn--ghost si-btn--sm"
-                          onClick={() => hotspotInput.current?.click()}
-                        >
-                          Replace photo
-                        </button>
-                        <button
-                          type="button"
-                          className="si-btn si-btn--danger si-btn--sm"
-                          onClick={() => {
-                            setHotspotImageId(null)
-                            setHotspotImageUrl(null)
-                          }}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      className="si-tile-edit-photo si-hotspot-photo"
-                      onClick={() => hotspotInput.current?.click()}
-                      aria-label="Upload hotspot photo"
-                    >
-                      <span className="si-tile-edit-photo-empty">
-                        📷 Show what it looks like when cluttered
-                      </span>
-                      {uploadingHotspot && (
-                        <span className="si-tile-edit-photo-loading">Uploading…</span>
-                      )}
-                    </button>
-                  )}
-                  <input
-                    ref={hotspotInput}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleHotspotFile}
-                    style={{ display: 'none' }}
-                  />
-                </div>
-              )}
-            </div>
-          </>
-        ) : (
-          <>
-            <h1 className="si-detail-title">{location!.name}</h1>
-            {location!.primarilyFor && <p className="si-detail-theme-display">{location!.primarilyFor}</p>}
-            {location!.accessPattern && (
-              <p className="si-detail-access">
-                {ACCESS_PATTERNS.find((p) => p.value === location!.accessPattern)?.label}
-              </p>
-            )}
-          </>
-        )}
-      </header>
-
-      {/* Notes */}
-      <section className="si-section">
-        <h2 className="si-section-title">Notes</h2>
-        <textarea
-          className="si-field si-textarea si-detail-notes"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Ideas, thoughts, organization plans for this space…"
-          rows={4}
-        />
-      </section>
-
-      {/* Gallery */}
+      {/* Gallery — sits right under the lead hero so detail photos are immediately visible. */}
       <section className="si-section">
         <h2 className="si-section-title">Gallery</h2>
         <div className="si-gallery">
@@ -582,7 +716,11 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
                   <button
                     type="button"
                     className="si-gallery-img-btn"
-                    onClick={() => fullUrl && setLightbox({ src: fullUrl, caption: g.caption })}
+                    onClick={() => {
+                      if (!fullUrl) return
+                      const startIndex = galleryLightboxImages.findIndex((im) => im.src === fullUrl)
+                      setLightbox({ images: galleryLightboxImages, index: startIndex < 0 ? 0 : startIndex })
+                    }}
                     aria-label="View full size"
                   >
                     <img src={url} alt={g.caption ?? ''} />
@@ -637,26 +775,283 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
         />
       </section>
 
+      {/* Name + theme + access pattern */}
+      <header className="si-detail-header">
+        {editing ? (
+          <>
+            <input
+              className="si-field si-detail-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={80}
+              placeholder="Space name"
+              autoFocus={isCreating}
+            />
+            <input
+              className="si-field si-detail-theme"
+              type="text"
+              value={primarilyFor}
+              onChange={(e) => setPrimarilyFor(e.target.value)}
+              maxLength={120}
+              placeholder="Theme — what belongs here?"
+            />
+            {/* Slot + Access frequency share one row to keep the form compact. */}
+            <div className="si-edit-row--split">
+              <div className="si-edit-field si-edit-field--slot">
+                <span className="si-edit-label">Slot</span>
+                <input
+                  className="si-field si-slot-input"
+                  type="number"
+                  min={1}
+                  value={slot + 1}
+                  onChange={(e) => {
+                    const n = Number.parseInt(e.target.value, 10)
+                    setSlot(Number.isFinite(n) && n >= 1 ? n - 1 : 0)
+                  }}
+                />
+                <span className="si-slot-helper">
+                  Page {Math.floor(slot / 6) + 1} · position {(slot % 6) + 1}
+                </span>
+              </div>
+              <div className="si-edit-field si-edit-field--access">
+                <span className="si-edit-label">Access frequency</span>
+                <select
+                  className="si-field si-select"
+                  value={accessPattern}
+                  onChange={(e) => setAccessPattern(e.target.value)}
+                >
+                  <option value="">— None —</option>
+                  {ACCESS_PATTERNS.map((p) => (
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Toggles sit to the right of Access frequency; their reveal UI drops below the row. */}
+              <div className="si-edit-field si-edit-field--toggles">
+                <span className="si-edit-label" aria-hidden>&nbsp;</span>
+                <div className="si-toggles-inline">
+                  <label className="si-toggle">
+                    <span className="si-switch">
+                      <input
+                        type="checkbox"
+                        checked={isHotspot}
+                        onChange={(e) => setIsHotspot(e.target.checked)}
+                      />
+                      <span className="si-switch-slider" aria-hidden />
+                    </span>
+                    <span className="si-toggle-text">
+                      Hotspot?
+                      <span className="si-toggle-tip" tabIndex={0} role="button" aria-label="What is a hotspot?">
+                        ⓘ
+                        <span className="si-toggle-tip-bubble" role="tooltip">
+                          A place that&apos;s prone to cluttering — flag problem areas you keep needing to clear, like an entryway table or a junk drawer.
+                        </span>
+                      </span>
+                    </span>
+                  </label>
+                  <label className="si-toggle">
+                    <span className="si-switch">
+                      <input
+                        type="checkbox"
+                        checked={needsOrganizing}
+                        onChange={(e) => setNeedsOrganizing(e.target.checked)}
+                      />
+                      <span className="si-switch-slider" aria-hidden />
+                    </span>
+                    <span className="si-toggle-text">
+                      Organize it?
+                      <span className="si-toggle-tip" tabIndex={0} role="button" aria-label="What does Organize it? do?">
+                        ⓘ
+                        <span className="si-toggle-tip-bubble" role="tooltip">
+                          Flag a space that needs attention — shows a flag on the dashboard tile and lets you filter for what to tackle next.
+                        </span>
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Hotspot photo reveal */}
+            {isHotspot && (
+              <div className="si-hotspot-photo-wrap">
+                {hotspotImageUrl ? (
+                  <>
+                    <button
+                      type="button"
+                      className="si-hotspot-photo"
+                      onClick={() => setLightbox({ images: [{ src: hotspotImageUrl, caption: 'Hotspot photo' }], index: 0 })}
+                      aria-label="View hotspot photo full size"
+                    >
+                      <img src={hotspotImageUrl} alt="" />
+                    </button>
+                    <div className="si-hotspot-actions">
+                      <button
+                        type="button"
+                        className="si-btn si-btn--ghost si-btn--sm"
+                        onClick={() => hotspotInput.current?.click()}
+                      >
+                        Replace photo
+                      </button>
+                      <button
+                        type="button"
+                        className="si-btn si-btn--danger si-btn--sm"
+                        onClick={() => {
+                          setHotspotImageId(null)
+                          setHotspotImageUrl(null)
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="si-tile-edit-photo si-hotspot-photo"
+                    onClick={() => hotspotInput.current?.click()}
+                    aria-label="Upload hotspot photo"
+                  >
+                    <span className="si-tile-edit-photo-empty">
+                      📷 Show what it looks like when cluttered
+                    </span>
+                    {uploadingHotspot && (
+                      <span className="si-tile-edit-photo-loading">Uploading…</span>
+                    )}
+                  </button>
+                )}
+                <input
+                  ref={hotspotInput}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleHotspotFile}
+                  style={{ display: 'none' }}
+                />
+              </div>
+            )}
+
+            {/* Organize-by date reveal */}
+            {needsOrganizing && (
+              <div className="si-organize-by">
+                <label className="si-organize-by-label" htmlFor="si-organize-by-input">
+                  By when?
+                </label>
+                <input
+                  id="si-organize-by-input"
+                  type="date"
+                  className="si-organize-by-input"
+                  value={organizeBy}
+                  onChange={(e) => setOrganizeBy(e.target.value)}
+                />
+                {organizeBy && (
+                  <button
+                    type="button"
+                    className="si-btn si-btn--ghost si-btn--sm"
+                    onClick={() => setOrganizeBy('')}
+                    aria-label="Clear target date"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <h1 className="si-detail-title">{location!.name}</h1>
+            {location!.primarilyFor && <p className="si-detail-theme-display">{location!.primarilyFor}</p>}
+            {location!.accessPattern && (
+              <p className="si-detail-access">
+                {ACCESS_PATTERNS.find((p) => p.value === location!.accessPattern)?.label}
+              </p>
+            )}
+          </>
+        )}
+      </header>
+
+      {/* Notes */}
+      <section className="si-section">
+        <h2 className="si-section-title">Notes</h2>
+        <textarea
+          className="si-field si-textarea si-detail-notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Ideas, thoughts, organization plans for this space…"
+          rows={4}
+        />
+      </section>
+
       {/* Items (only for existing spaces) */}
       {!isCreating && (
         <section className="si-section">
-          <h2 className="si-section-title">Items in this space ({items.length})</h2>
-          {items.length > 0 ? (
+          <h2 className="si-section-title">Items in this space ({spaceItems.length})</h2>
+
+          {/* Quick-add a new item straight into this space + pull in an existing unassigned one */}
+          <div className="si-item-add-bar">
+            <form className="si-item-quickadd" onSubmit={handleQuickAddItem}>
+              <input
+                className="si-field"
+                type="text"
+                value={quickAddName}
+                onChange={(e) => setQuickAddName(e.target.value)}
+                placeholder="Add an item to this space…"
+                maxLength={120}
+              />
+              <button
+                type="submit"
+                className="si-btn si-btn--primary si-btn--sm"
+                disabled={!quickAddName.trim() || addingItem}
+              >
+                {addingItem ? 'Adding…' : 'Add'}
+              </button>
+            </form>
+            {availableItems.length > 0 && (
+              <select
+                className="si-field si-select si-item-assign-select"
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) handleAssignExisting(e.target.value)
+                }}
+                aria-label="Assign an existing unassigned item to this space"
+              >
+                <option value="">+ Assign existing item…</option>
+                {availableItems.map((it) => (
+                  <option key={it.id} value={it.id}>
+                    {it.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {spaceItems.length > 0 ? (
             <ul className="si-item-list">
-              {items.map((it) => (
-                <ItemRow key={it.id} item={it as never} locations={locations} categories={categories} tags={tags} />
+              {spaceItems.map((it) => (
+                <ItemRow
+                  key={it.id}
+                  item={it as never}
+                  locations={locations}
+                  categories={categories}
+                  tags={tags}
+                  onUpdate={handleItemUpdate}
+                  onDelete={handleItemDelete}
+                />
               ))}
             </ul>
           ) : (
-            <p className="si-section-empty">No items here yet. Assign some on the dashboard.</p>
+            <p className="si-section-empty">No items here yet — add one above.</p>
           )}
         </section>
       )}
 
       {lightbox && (
         <Lightbox
-          src={lightbox.src}
-          caption={lightbox.caption}
+          images={lightbox.images}
+          index={lightbox.index}
           onClose={() => setLightbox(null)}
         />
       )}

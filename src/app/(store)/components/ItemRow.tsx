@@ -22,6 +22,13 @@ type Item = {
 
 type CallResult = { ok: true } | { ok: false; error: string }
 
+/** Coerce a relationship ID to a number (Payload Postgres adapter requires numeric IDs). */
+function toIdNum(v: string | number | null | undefined): number | null {
+  if (v === null || v === undefined || v === '') return null
+  const n = typeof v === 'number' ? v : Number.parseInt(String(v), 10)
+  return Number.isFinite(n) ? n : null
+}
+
 type Props = {
   item: Item
   locations: Loc[]
@@ -104,15 +111,19 @@ export function ItemRow({ item, locations, categories, tags, onUpdate, onDelete 
     if (!name.trim()) return
     setSaving(true)
     setError('')
+    // Relationship fields must be numeric IDs for Payload's Postgres adapter (string IDs
+    // are rejected with "field is invalid"). Coerce location/category/image and each tag.
     const updates = {
       name: name.trim(),
-      location: locId || null,
-      category: catId || null,
-      tags: tagIds,
+      location: toIdNum(locId),
+      category: toIdNum(catId),
+      tags: tagIds.map((t) => toIdNum(t)).filter((n): n is number => n !== null),
       description: description.trim() || null,
-      image: imageId || null,
+      image: toIdNum(imageId),
       accessPattern: accessPattern || null,
-    } as Partial<Item>
+      // Cast via unknown: the API takes numeric relationship IDs, but the display-side
+      // Item type models these as populated objects.
+    } as unknown as Partial<Item>
 
     // Close UI immediately if optimistic handler is available
     if (onUpdate) {

@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import {
   DndContext,
   DragOverlay,
@@ -27,6 +27,8 @@ type Location = {
   image?: Media | string | null
   accessPattern?: string | null
   sortOrder?: number | null
+  needsOrganizing?: boolean | null
+  organizeBy?: string | null
 }
 
 const PAGE_SIZE = 6
@@ -53,7 +55,7 @@ function DragHandleSvg() {
   )
 }
 
-function DraggableLocationCell({ loc }: { loc: Location }) {
+function DraggableLocationCell({ loc, dimmed = false }: { loc: Location; dimmed?: boolean }) {
   const draggable = useDraggable({ id: `loc:${loc.id}` })
   const droppable = useDroppable({ id: `loc:${loc.id}` })
 
@@ -63,11 +65,13 @@ function DraggableLocationCell({ loc }: { loc: Location }) {
   }
 
   // No transform on the original — the DragOverlay handles the moving preview.
+  const baseOpacity = draggable.isDragging ? 0.3 : dimmed ? 0.22 : 1
   const style: React.CSSProperties = {
     position: 'relative',
     height: '100%',
     width: '100%',
-    opacity: draggable.isDragging ? 0.3 : 1,
+    opacity: baseOpacity,
+    transition: 'opacity 160ms ease',
     outline:
       droppable.isOver && !draggable.isDragging
         ? '3px solid var(--orange)'
@@ -150,6 +154,80 @@ function PageLabel({
   )
 }
 
+type PageJumpEntry = { pageIndex: number; name: string; locCount: number }
+
+/** Chevron dropdown next to the page name — jump directly to any page by name. */
+function PageJumpDropdown({
+  pages,
+  currentPage,
+  onJump,
+}: {
+  pages: PageJumpEntry[]
+  currentPage: number
+  onJump: (pageIndex: number) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [open])
+
+  return (
+    <div className="si-page-jump" ref={ref}>
+      <button
+        type="button"
+        className={`si-page-jump-toggle ${open ? 'is-open' : ''}`}
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="Jump to a page"
+        title="Jump to a page"
+      >
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+          <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <ul className="si-page-jump-menu" role="listbox" aria-label="Pages">
+          {pages.map((p) => (
+            <li key={p.pageIndex}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={p.pageIndex === currentPage}
+                className={`si-page-jump-item ${p.pageIndex === currentPage ? 'is-current' : ''}`}
+                onClick={() => {
+                  onJump(p.pageIndex)
+                  setOpen(false)
+                }}
+              >
+                <span className="si-page-jump-num">{p.pageIndex + 1}</span>
+                <span className={`si-page-jump-name ${p.name ? '' : 'si-page-jump-name--empty'}`}>
+                  {p.name || 'Unnamed page'}
+                </span>
+                {p.locCount > 0 && <span className="si-page-jump-count">{p.locCount}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function DroppableAddCell({ slot }: { slot: number }) {
   const { setNodeRef, isOver } = useDroppable({ id: `add:${slot}` })
   const style: React.CSSProperties = {
@@ -180,10 +258,38 @@ export function SpacesBento({
   initialPageNames?: PageName[]
 }) {
   const router = useRouter()
-  const [pageIdx, setPageIdx] = useState(0)
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  // The current page is derived from the ?page= URL param — the single source of truth.
+  // This lets the brand logo (href="/") reset to page 1 from anywhere, and makes the
+  // browser back button restore the page the user came from.
+  const rawPage = searchParams?.get('page')
+  const parsedPage = rawPage ? Number.parseInt(rawPage, 10) : 0
+  const urlPage = Number.isFinite(parsedPage) && parsedPage >= 0 ? parsedPage : 0
+  // Navigate to a page by writing the ?page= param (router.replace keeps history tidy).
+  const goToPage = useCallback(
+    (n: number) => {
+      const target = Math.max(0, n)
+      const params = new URLSearchParams(searchParams?.toString() ?? '')
+      if (target > 0) params.set('page', String(target))
+      else params.delete('page')
+      const qs = params.toString()
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+    },
+    [router, pathname, searchParams],
+  )
   const [activeDragLoc, setActiveDragLoc] = useState<Location | null>(null)
   const [locations, setLocations] = useState<Location[]>(() => normalize(propLocations))
   const [pageNames, setPageNames] = useState<PageName[]>(initialPageNames)
+  // "Organize it?" filter — when on, dim tiles that aren't flagged so you can focus on what needs attention.
+  const [organizeFilter, setOrganizeFilter] = useState(false)
+  // Empty pages the user has explicitly added via "+ Add page". Reset whenever locations change
+  // (because a new location on the empty page bumps baseTotalPages — no need to add on top).
+  const [extraPages, setExtraPages] = useState(0)
+  useEffect(() => {
+    setExtraPages(0)
+  }, [locations.length])
+  const organizeCount = locations.filter((l) => !!l.needsOrganizing).length
   // dnd-kit generates auto-incrementing aria IDs that mismatch between SSR and CSR.
   // Defer rendering its context until after client mount to avoid hydration errors.
   const [mounted, setMounted] = useState(false)
@@ -222,9 +328,13 @@ export function SpacesBento({
     cursor++
   }
 
+  // Pagination: pages are derived from slot usage (MIN_PAGES floor). The user can request
+  // extra empty pages via the "+ Add page" button — those go away once any location lands
+  // on them (locations.length change resets the counter).
   const maxSlot = slotMap.size === 0 ? 0 : Math.max(...slotMap.keys())
-  const totalPages = Math.max(MIN_PAGES, Math.ceil((maxSlot + 1) / PAGE_SIZE))
-  const safePage = Math.min(pageIdx, totalPages - 1)
+  const baseTotalPages = Math.max(MIN_PAGES, Math.ceil((maxSlot + 1) / PAGE_SIZE))
+  const totalPages = baseTotalPages + extraPages
+  const safePage = Math.min(urlPage, totalPages - 1)
   const start = safePage * PAGE_SIZE
   const end = start + PAGE_SIZE
 
@@ -315,10 +425,6 @@ export function SpacesBento({
     }
   }
 
-  useEffect(() => {
-    if (safePage !== pageIdx) setPageIdx(safePage)
-  }, [safePage, pageIdx])
-
   const handleSavePageName = async (idx: number, newName: string) => {
     const trimmed = newName.trim()
     const existing = pageNames.find((p) => p.pageIndex === idx)
@@ -380,9 +486,38 @@ export function SpacesBento({
 
   const currentPageName = pageNames.find((p) => p.pageIndex === safePage)?.name ?? ''
 
+  // Build the page-jump list: one entry per page, with its name and how many spaces it holds.
+  const pageList: PageJumpEntry[] = Array.from({ length: totalPages }, (_, i) => ({
+    pageIndex: i,
+    name: pageNames.find((p) => p.pageIndex === i)?.name ?? '',
+    locCount: locations.filter((l) => {
+      const s = locToSlot.get(l.id)
+      return s !== undefined && Math.floor(s / PAGE_SIZE) === i
+    }).length,
+  }))
+
   return (
     <div className="si-spaces">
-      <PageLabel pageIndex={safePage} name={currentPageName} onSave={handleSavePageName} />
+      <div className="si-spaces-top">
+        <div className="si-spaces-namebar">
+          <PageLabel pageIndex={safePage} name={currentPageName} onSave={handleSavePageName} />
+          <PageJumpDropdown pages={pageList} currentPage={safePage} onJump={(i) => goToPage(i)} />
+        </div>
+        <button
+          type="button"
+          className={`si-organize-pill ${organizeFilter ? 'is-on' : ''} ${organizeCount === 0 ? 'is-empty' : ''}`}
+          onClick={() => setOrganizeFilter((v) => !v)}
+          aria-pressed={organizeFilter}
+          title={organizeCount === 0 ? 'No spaces flagged as needing organizing' : organizeFilter ? 'Show all spaces' : 'Focus on spaces flagged as needing organizing'}
+          disabled={organizeCount === 0}
+        >
+          <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden>
+            <path d="M3 1.5a.75.75 0 0 1 1.5 0V2h7.25a.75.75 0 0 1 .6 1.2L10.5 6l1.85 2.8a.75.75 0 0 1-.6 1.2H4.5v4.5a.75.75 0 0 1-1.5 0V1.5z" />
+          </svg>
+          {organizeFilter ? 'Showing flagged' : 'Organize it?'}
+          {organizeCount > 0 && <span className="si-organize-pill-count">{organizeCount}</span>}
+        </button>
+      </div>
       {mounted ? (
         <DndContext
           sensors={sensors}
@@ -394,7 +529,11 @@ export function SpacesBento({
           <BentoGrid>
             {cells.map((c) =>
               c.kind === 'loc' ? (
-                <DraggableLocationCell key={cellId(c)} loc={c.loc} />
+                <DraggableLocationCell
+                  key={cellId(c)}
+                  loc={c.loc}
+                  dimmed={organizeFilter && !c.loc.needsOrganizing}
+                />
               ) : (
                 <DroppableAddCell key={cellId(c)} slot={c.slot} />
               ),
@@ -413,7 +552,17 @@ export function SpacesBento({
         <BentoGrid>
           {cells.map((c) =>
             c.kind === 'loc' ? (
-              <LocationTile key={cellId(c)} location={c.loc as never} />
+              <div
+                key={cellId(c)}
+                style={{
+                  height: '100%',
+                  width: '100%',
+                  opacity: organizeFilter && !c.loc.needsOrganizing ? 0.22 : 1,
+                  transition: 'opacity 160ms ease',
+                }}
+              >
+                <LocationTile location={c.loc as never} />
+              </div>
             ) : (
               <AddLocationTile key={cellId(c)} targetSlot={c.slot} />
             ),
@@ -424,7 +573,7 @@ export function SpacesBento({
         <button
           type="button"
           className="si-bento-nav-btn"
-          onClick={() => setPageIdx((p) => Math.max(0, p - 1))}
+          onClick={() => goToPage(safePage - 1)}
           disabled={safePage === 0}
           aria-label="Previous page"
         >
@@ -434,11 +583,25 @@ export function SpacesBento({
         <button
           type="button"
           className="si-bento-nav-btn"
-          onClick={() => setPageIdx((p) => Math.min(totalPages - 1, p + 1))}
+          onClick={() => goToPage(safePage + 1)}
           disabled={safePage === totalPages - 1}
           aria-label="Next page"
         >
           ›
+        </button>
+        <button
+          type="button"
+          className="si-bento-nav-add"
+          onClick={() => {
+            // Add a fresh empty page and jump to it so the user can start placing locations.
+            const newPageIdx = totalPages
+            setExtraPages((n) => n + 1)
+            goToPage(newPageIdx)
+          }}
+          title="Add a new empty page"
+          aria-label="Add a new empty page"
+        >
+          + Add page
         </button>
       </nav>
       {activeDragLoc && (

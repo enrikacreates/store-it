@@ -376,6 +376,30 @@ a { color: inherit; }
 }
 
 /* ---- Items list ---- */
+/* Quick-add + assign-existing bar above the items list */
+.si-item-add-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.si-item-quickadd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 240px;
+}
+.si-item-quickadd .si-field {
+  flex: 1;
+}
+.si-item-assign-select {
+  flex-shrink: 0;
+  max-width: 240px;
+  color: var(--text-muted, #6b6b6b);
+}
+
 .si-item-list {
   list-style: none;
   margin: 0;
@@ -689,6 +713,44 @@ button.si-cat-chip:hover {
   align-items: center;
   justify-content: center;
   border-bottom: 0.5px solid rgba(26, 26, 26, 0.08);
+  /* Clip zoomed (transform: scale > 1) images so they don't spill into the text area below. */
+  overflow: hidden;
+}
+/* "Organize it?" flag — small badge in the top-left corner of a tile image.
+   Default is green ("on the list"); shifts color by urgency when a "by when" date is set. */
+.si-tile-flag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px 4px 6px;
+  border-radius: 999px;
+  background: var(--green, #79C9B1);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+.si-tile-flag--none,
+.si-tile-flag--later {
+  background: var(--green, #79C9B1);
+  color: #fff;
+}
+.si-tile-flag--soon {
+  background: var(--orange, #FA9B64);
+  color: #fff;
+}
+.si-tile-flag--overdue {
+  background: #E5484D;
+  color: #fff;
+}
+.si-tile-flag-label {
+  line-height: 1;
 }
 .si-tile-ap {
   display: inline-block;
@@ -775,7 +837,32 @@ button.si-cat-chip:hover {
   gap: 28px;
 }
 .si-detail-crumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
   margin-bottom: -8px;
+  font-size: 13px;
+}
+.si-detail-crumb .si-crumb-link {
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+.si-detail-crumb .si-crumb-link:hover {
+  color: var(--text);
+}
+.si-detail-crumb .si-crumb-sep {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+.si-detail-crumb .si-crumb-current {
+  color: var(--text);
+  font-weight: 600;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .si-detail-hero {
   position: relative;
@@ -872,25 +959,24 @@ button.si-cat-chip:hover {
 
 /* ---- Gallery (masonry-style via CSS columns) ---- */
 .si-gallery {
-  column-count: 3;
-  column-gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  align-items: start;
 }
 @media (max-width: 720px) {
-  .si-gallery { column-count: 2; }
+  .si-gallery { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 480px) {
-  .si-gallery { column-count: 1; }
+  .si-gallery { grid-template-columns: 1fr; }
 }
 .si-gallery-cell {
   position: relative;
-  display: inline-block;
   width: 100%;
   background: var(--card);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: var(--shadow-card);
-  margin: 0 0 12px;
-  break-inside: avoid;
 }
 .si-gallery-cell img {
   width: 100%;
@@ -954,8 +1040,6 @@ button.si-cat-chip:hover {
   justify-content: center;
   gap: 6px;
   min-height: 140px;
-  break-inside: avoid;
-  margin: 0 0 12px;
 }
 .si-gallery-add:hover {
   background: #FFF8F2;
@@ -966,20 +1050,67 @@ button.si-cat-chip:hover {
   font-weight: 300;
 }
 
-.si-slot-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
 .si-slot-input {
-  width: 90px;
+  width: 100%;
   font-size: 14px;
   text-align: center;
 }
 .si-slot-helper {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
+}
+
+/* Edit fields sharing one row (Slot + Access frequency + toggles) */
+.si-edit-row--split {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+}
+.si-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.si-edit-field--slot {
+  width: 110px;
+  flex-shrink: 0;
+}
+.si-edit-field--access {
+  /* Don't grow greedily — cap the width so the toggles fit on the same row to the right. */
+  flex: 0 1 260px;
+  min-width: 180px;
+}
+.si-edit-field--access .si-select {
+  width: 100%;
+}
+.si-edit-field--toggles {
+  flex-shrink: 0;
+  /* Push the toggles into the open space to the right of the dropdown. */
+  margin-left: auto;
+}
+/* Toggles align with the inputs (a blank label spacer sits above them) */
+.si-toggles-inline {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  min-height: 44px;
+}
+@media (max-width: 600px) {
+  .si-edit-field--slot {
+    width: 90px;
+  }
+  .si-edit-field--toggles {
+    width: 100%;
+  }
+  .si-edit-field--toggles .si-edit-label {
+    display: none;
+  }
+  .si-toggles-inline {
+    min-height: 0;
+  }
 }
 
 /* ---- Lightbox ---- */
@@ -1036,10 +1167,114 @@ button.si-cat-chip:hover {
 .si-lightbox-close:hover {
   background: rgba(255, 255, 255, 0.28);
 }
+/* Prev / next chevrons — vertically centered on each edge */
+.si-lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 30px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, transform 0.15s ease;
+  z-index: 1;
+}
+.si-lightbox-prev { left: 20px; }
+.si-lightbox-next { right: 20px; }
+.si-lightbox-nav:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+.si-lightbox-prev:hover { transform: translateY(-50%) scale(1.08); }
+.si-lightbox-next:hover { transform: translateY(-50%) scale(1.08); }
+.si-lightbox-counter {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  margin: 0;
+}
+@media (max-width: 480px) {
+  .si-lightbox-nav { width: 42px; height: 42px; font-size: 24px; }
+  .si-lightbox-prev { left: 8px; }
+  .si-lightbox-next { right: 8px; }
+}
+
+/* ---- Crop drawer toggle (overlaid top-right on the lead hero) ---- */
+.si-hero-crop-toggle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--text, #1a1a1a);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: background 0.15s ease, transform 0.15s ease;
+  z-index: 2;
+}
+.si-hero-crop-toggle:hover {
+  background: #fff;
+  transform: scale(1.05);
+}
+.si-hero-crop-toggle.is-open {
+  background: var(--orange, #FA9B64);
+  color: #fff;
+}
 
 /* ---- Focal-point picker for lead image crop ---- */
 .si-focal {
+  gap: 12px;
+}
+/* Each axis row (Left↔Right, Top↕Bottom) stacks its label, slider, and tick labels */
+.si-focal-axis {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.si-focal-axis-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.si-focal-zoom-reset {
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  background: transparent;
+  border: none;
+  color: var(--orange, #FA9B64);
+  cursor: pointer;
+  padding: 0;
+  text-transform: uppercase;
+}
+.si-focal-zoom-reset:disabled {
+  color: var(--text-muted);
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.si-focal-zoom-reset:hover:not(:disabled) {
+  text-decoration: underline;
 }
 .si-focal-preview {
   width: 100%;
@@ -1134,6 +1369,7 @@ button.si-cat-chip:hover {
   gap: 6px;
 }
 .si-toggle-tip {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1145,6 +1381,47 @@ button.si-cat-chip:hover {
   font-size: 11px;
   font-weight: 700;
   cursor: help;
+}
+/* Bubble: hidden by default, shown on hover/focus of the parent .si-toggle-tip */
+.si-toggle-tip-bubble {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  width: max-content;
+  max-width: 240px;
+  padding: 8px 10px;
+  background: var(--text, #1a1a1a);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0;
+  text-transform: none;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease;
+  z-index: 50;
+  white-space: normal;
+  text-align: left;
+}
+/* Little arrow pointing down toward the ⓘ */
+.si-toggle-tip-bubble::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--text, #1a1a1a);
+}
+.si-toggle-tip:hover .si-toggle-tip-bubble,
+.si-toggle-tip:focus-visible .si-toggle-tip-bubble,
+.si-toggle-tip:focus .si-toggle-tip-bubble {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 .si-hotspot-photo {
   margin-top: 8px;
@@ -1237,6 +1514,204 @@ button.si-cat-chip:hover {
 .si-autosave--error { opacity: 1; color: #B23B1F; }
 
 /* ---- Page label (above bento) ---- */
+/* Row that holds the page label + "Organize it?" filter pill */
+.si-spaces-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.si-spaces-top .si-page-label {
+  margin-bottom: 0;
+}
+
+/* Page name + jump-to-page dropdown grouped together */
+.si-spaces-namebar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.si-page-jump {
+  position: relative;
+  display: inline-flex;
+}
+.si-page-jump-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #6b6b6b);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+.si-page-jump-toggle:hover {
+  background: var(--card, #fff);
+  color: var(--text, #1a1a1a);
+}
+.si-page-jump-toggle.is-open {
+  background: var(--card, #fff);
+  color: var(--text, #1a1a1a);
+  transform: rotate(180deg);
+}
+.si-page-jump-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  min-width: 220px;
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--card, #fff);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
+}
+.si-page-jump-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font-size: 14px;
+  color: var(--text, #1a1a1a);
+  transition: background 0.12s ease;
+}
+.si-page-jump-item:hover {
+  background: var(--bg, #f4efe6);
+}
+.si-page-jump-item.is-current {
+  background: var(--bg, #f4efe6);
+  font-weight: 700;
+}
+.si-page-jump-num {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: rgba(26, 26, 26, 0.08);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted, #6b6b6b);
+}
+.si-page-jump-item.is-current .si-page-jump-num {
+  background: var(--orange, #FA9B64);
+  color: #fff;
+}
+.si-page-jump-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.si-page-jump-name--empty {
+  color: var(--text-muted, #6b6b6b);
+  font-style: italic;
+  font-weight: 400;
+}
+.si-page-jump-count {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted, #6b6b6b);
+  background: rgba(26, 26, 26, 0.06);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.si-organize-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 6px 9px;
+  border-radius: 999px;
+  background: var(--card, #fff);
+  color: var(--text-muted, #6b6b6b);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: none;
+  box-shadow: var(--shadow-card, 0 1px 3px rgba(0, 0, 0, 0.08));
+  transition: all 160ms ease;
+}
+.si-organize-pill:hover:not(:disabled) {
+  color: var(--text, #1a1a1a);
+  transform: translateY(-1px);
+}
+.si-organize-pill.is-on {
+  background: var(--green, #79C9B1);
+  color: #fff;
+}
+.si-organize-pill.is-empty,
+.si-organize-pill:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.si-organize-pill-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.15);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+.si-organize-pill.is-on .si-organize-pill-count {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* "By when?" date input next to the Organize toggle in the detail editor */
+.si-organize-by {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
+  padding: 6px 10px;
+  background: var(--card, #fff);
+  border-radius: 10px;
+  box-shadow: var(--shadow-card, 0 1px 3px rgba(0, 0, 0, 0.08));
+}
+.si-organize-by-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted, #6b6b6b);
+}
+.si-organize-by-input {
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 6px;
+  border: none;
+  background: transparent;
+  color: var(--text, #1a1a1a);
+  cursor: pointer;
+}
+.si-organize-by-input:focus {
+  outline: 2px solid var(--green, #79C9B1);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .si-page-label {
   font-family: Georgia, 'Times New Roman', serif;
   font-style: italic;
@@ -1376,6 +1851,27 @@ button.si-cat-chip:hover {
   font-weight: 600;
   min-width: 48px;
   text-align: center;
+}
+/* "+ Add page" button — sits to the right of the pagination arrows in the bento nav. */
+.si-bento-nav-add {
+  margin-left: 12px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px dashed var(--text-muted, #6b6b6b);
+  border-radius: 999px;
+  color: var(--text-muted, #6b6b6b);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.si-bento-nav-add:hover {
+  background: var(--orange, #FA9B64);
+  border-color: var(--orange, #FA9B64);
+  color: #fff;
+  transform: translateY(-1px);
 }
 
 /* ---- Location tile in edit mode ---- */

@@ -47,6 +47,26 @@ export const Locations: CollectionConfig = {
       },
     },
     {
+      name: 'imageFocalX',
+      type: 'number',
+      defaultValue: 50,
+      min: 0,
+      max: 100,
+      admin: {
+        description: 'Horizontal focal point of the lead image on the dashboard tile (0 = left, 100 = right).',
+      },
+    },
+    {
+      name: 'imageZoom',
+      type: 'number',
+      defaultValue: 100,
+      min: 100,
+      max: 300,
+      admin: {
+        description: 'Zoom percentage of the lead image on the dashboard tile (100 = fit, 300 = 3x zoom). More zoom gives more crop room on both axes.',
+      },
+    },
+    {
       name: 'gallery',
       type: 'array',
       label: 'Gallery',
@@ -80,6 +100,27 @@ export const Locations: CollectionConfig = {
       defaultValue: false,
       admin: {
         description: 'A place that attracts clutter — track problem areas you keep needing to clear.',
+      },
+    },
+    {
+      name: 'needsOrganizing',
+      type: 'checkbox',
+      label: 'Organize it?',
+      defaultValue: false,
+      admin: {
+        description: 'Flag a space that needs attention — shows a flag on the dashboard tile and lets you filter for spaces to tackle.',
+      },
+    },
+    {
+      name: 'organizeBy',
+      type: 'date',
+      label: 'By when?',
+      admin: {
+        description: 'Optional target date for organizing this space — shown on the flag to help prioritize.',
+        date: {
+          pickerAppearance: 'dayOnly',
+          displayFormat: 'MMM d, yyyy',
+        },
       },
     },
     {
