@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ACCESS_PATTERNS, type AccessPattern } from '../accessPatterns'
 
@@ -38,11 +38,20 @@ type Props = {
   onUpdate?: (id: string, updates: Partial<Item>) => Promise<CallResult>
   /** Optional optimistic delete handler */
   onDelete?: (id: string) => Promise<CallResult>
+  /** When true (e.g. arrived from "Where is it?" search), scroll to + pulse this row. */
+  highlight?: boolean
 }
 
-export function ItemRow({ item, locations, categories, tags, onUpdate, onDelete }: Props) {
+export function ItemRow({ item, locations, categories, tags, onUpdate, onDelete, highlight }: Props) {
   const router = useRouter()
+  const rootRef = useRef<HTMLLIElement>(null)
   const [editing, setEditing] = useState(false)
+
+  useEffect(() => {
+    if (highlight && rootRef.current) {
+      rootRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [highlight])
   const [showDetails, setShowDetails] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
 
@@ -195,7 +204,7 @@ export function ItemRow({ item, locations, categories, tags, onUpdate, onDelete 
 
   if (!editing) {
     return (
-      <li className="si-item">
+      <li ref={rootRef} className={`si-item ${highlight ? 'si-item--highlight' : ''}`}>
         <button
           className="si-item-main"
           onClick={() => setEditing(true)}

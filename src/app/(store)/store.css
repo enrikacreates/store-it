@@ -418,6 +418,20 @@ a { color: inherit; }
 .si-item:hover {
   box-shadow: var(--shadow-card-hover);
 }
+/* "Where is it?" search landing — pulse the found item so it's easy to spot */
+.si-item--highlight {
+  animation: si-item-pulse 2.4s ease-out 1;
+}
+@keyframes si-item-pulse {
+  0%, 12% {
+    box-shadow: 0 0 0 3px var(--orange, #FA9B64), var(--shadow-card);
+    background: #FFF4EC;
+  }
+  100% {
+    box-shadow: var(--shadow-card);
+    background: var(--card);
+  }
+}
 .si-item-main {
   display: flex;
   align-items: center;

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ItemRow } from '../../components/ItemRow'
 import { Lightbox, type LightboxImage } from '../../components/Lightbox'
 import { ACCESS_PATTERNS } from '../../accessPatterns'
@@ -73,6 +73,9 @@ function toIdNum(v: string | number | null | undefined): number | null {
 
 export function LocationDetail({ location, creatingSlot, items, locations, tags, categories, pageNames = [], unassignedItems = [] }: Props) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  // Item id to highlight when arriving from "Where is it?" search (?item=<id>).
+  const highlightItemId = searchParams?.get('item') ?? null
   const isCreating = location === null
   const leadInput = useRef<HTMLInputElement>(null)
   const galleryInput = useRef<HTMLInputElement>(null)
@@ -1039,6 +1042,7 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
                   tags={tags}
                   onUpdate={handleItemUpdate}
                   onDelete={handleItemDelete}
+                  highlight={highlightItemId != null && String(it.id) === highlightItemId}
                 />
               ))}
             </ul>

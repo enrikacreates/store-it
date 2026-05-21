@@ -123,10 +123,25 @@ export function SearchAdd({ items, locations, categories, onCreate }: Props) {
       handleCreate()
       return
     }
-    // For now, selecting an existing thing just closes the dropdown.
-    // (Future: jump-to-edit on the row/tile.)
     setQuery('')
     setOpen(false)
+
+    if (row.kind === 'item') {
+      // "Where is it?" — jump to the room holding this item (and highlight it there).
+      const loc = row.item.location && typeof row.item.location === 'object' ? row.item.location : null
+      if (loc) {
+        router.push(`/l/${loc.id}?item=${encodeURIComponent(row.item.id)}`)
+      }
+      // Unassigned items have no room to open — leave the user on the dashboard
+      // where the item already shows under "Unassigned items".
+      return
+    }
+
+    if (row.kind === 'location') {
+      router.push(`/l/${row.loc.id}`)
+      return
+    }
+    // category — no dedicated view yet; selecting just closes the dropdown.
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
