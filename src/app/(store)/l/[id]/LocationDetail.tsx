@@ -36,16 +36,20 @@ type Location = {
   accessPattern?: string | null
   gallery?: GalleryEntry[] | null
   sortOrder?: number | null
+  space?: number | null
   isHotspot?: boolean | null
   hotspotImage?: Media | string | null
+  hotspotAfterImage?: Media | string | null
   needsOrganizing?: boolean | null
   organizeBy?: string | null
+  lastOrganizedAt?: string | null
 }
 
 type Props = {
   location: Location | null
-  /** When provided, the form is in create mode and the new space gets this sortOrder. */
-  creatingSlot?: number
+  /** When provided, the form is in create mode: the new zone is placed in this space, at this order. */
+  creatingSpace?: number
+  creatingSortOrder?: number
   items: Item[]
   locations: Loc[]
   tags: Tag[]
@@ -71,7 +75,7 @@ function toIdNum(v: string | number | null | undefined): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-export function LocationDetail({ location, creatingSlot, items, locations, tags, categories, pageNames = [], unassignedItems = [] }: Props) {
+export function LocationDetail({ location, creatingSpace, creatingSortOrder, items, locations, tags, categories, pageNames = [], unassignedItems = [] }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   // Item id to highlight when arriving from "Where is it?" search (?item=<id>).
@@ -99,15 +103,30 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     location && typeof location.hotspotImage === 'object' && location.hotspotImage
       ? (location.hotspotImage.url ?? mediaUrl(location.hotspotImage, 'hero'))
       : null
+  const initialAfterId =
+    location && typeof location.hotspotAfterImage === 'object' && location.hotspotAfterImage
+      ? (location.hotspotAfterImage.id ?? null)
+      : null
+  const initialAfterUrl =
+    location && typeof location.hotspotAfterImage === 'object' && location.hotspotAfterImage
+      ? (location.hotspotAfterImage.url ?? mediaUrl(location.hotspotAfterImage, 'hero'))
+      : null
 
   const initialSlot = isCreating
-    ? (creatingSlot ?? 0)
+    ? (creatingSortOrder ?? 0)
     : (typeof location?.sortOrder === 'number' ? location.sortOrder : 0)
+  // Which Space this zone belongs to (0-based). Falls back to the legacy floor(sortOrder/6).
+  const initialSpace = isCreating
+    ? (creatingSpace ?? 0)
+    : (typeof location?.space === 'number'
+        ? location.space
+        : Math.floor((typeof location?.sortOrder === 'number' ? location.sortOrder : 0) / BENTO_PAGE_SIZE))
   const [name, setName] = useState(location?.name ?? '')
   const [primarilyFor, setPrimarilyFor] = useState(location?.primarilyFor ?? '')
   const [accessPattern, setAccessPattern] = useState<string>(location?.accessPattern ?? '')
   const [notes, setNotes] = useState(location?.description ?? '')
   const [slot, setSlot] = useState<number>(initialSlot)
+  const [spaceIdx, setSpaceIdx] = useState<number>(initialSpace)
   const [focalY, setFocalY] = useState<number>(
     typeof location?.imageFocalY === 'number' ? location.imageFocalY : 50,
   )
@@ -122,10 +141,16 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
   // Date input stores YYYY-MM-DD; we slice off any time portion from the API value.
   const initialOrganizeBy = location?.organizeBy ? String(location.organizeBy).slice(0, 10) : ''
   const [organizeBy, setOrganizeBy] = useState<string>(initialOrganizeBy)
+  const [lastOrganizedAt, setLastOrganizedAt] = useState<string | null>(location?.lastOrganizedAt ?? null)
   const [hotspotImageId, setHotspotImageId] = useState<string | null>(initialHotspotId)
   const [hotspotImageUrl, setHotspotImageUrl] = useState<string | null>(initialHotspotUrl)
   const [uploadingHotspot, setUploadingHotspot] = useState(false)
   const hotspotInput = useRef<HTMLInputElement>(null)
+  // Hot Zone "after" photo (before/after motivation), captured via the Done button.
+  const [afterImageId, setAfterImageId] = useState<string | null>(initialAfterId)
+  const [afterImageUrl, setAfterImageUrl] = useState<string | null>(initialAfterUrl)
+  const [uploadingAfter, setUploadingAfter] = useState(false)
+  const afterInput = useRef<HTMLInputElement>(null)
   const [lightbox, setLightbox] = useState<{ images: LightboxImage[]; index: number } | null>(null)
   // Tile crop drawer — collapsed by default so the gallery sits closer to the hero image.
   const [showCrop, setShowCrop] = useState(false)
@@ -143,6 +168,10 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
   const [availableItems, setAvailableItems] = useState<{ id: string; name: string }[]>(unassignedItems)
   const [quickAddName, setQuickAddName] = useState('')
   const [addingItem, setAddingItem] = useState(false)
+  const [itemsOpen, setItemsOpen] = useState(true)
+  // Bento gallery: which photo is the big "feature" image.
+  const [activeGalleryIdx, setActiveGalleryIdx] = useState(0)
+  const galleryStripRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     setSpaceItems(items)
   }, [items])
@@ -158,6 +187,7 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     setAccessPattern(location?.accessPattern ?? '')
     setNotes(location?.description ?? '')
     setSlot(initialSlot)
+    setSpaceIdx(initialSpace)
     setFocalY(typeof location?.imageFocalY === 'number' ? location.imageFocalY : 50)
     setFocalX(typeof location?.imageFocalX === 'number' ? location.imageFocalX : 50)
     setZoom(typeof location?.imageZoom === 'number' ? location.imageZoom : 100)
@@ -167,8 +197,11 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     setIsHotspot(!!location?.isHotspot)
     setNeedsOrganizing(!!location?.needsOrganizing)
     setOrganizeBy(location?.organizeBy ? String(location.organizeBy).slice(0, 10) : '')
+    setLastOrganizedAt(location?.lastOrganizedAt ?? null)
     setHotspotImageId(initialHotspotId)
     setHotspotImageUrl(initialHotspotUrl)
+    setAfterImageId(initialAfterId)
+    setAfterImageUrl(initialAfterUrl)
     setError('')
   }
 
@@ -222,6 +255,19 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     setUploadingHotspot(false)
   }
 
+  const handleAfterFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingAfter(true)
+    setError('')
+    const out = await uploadFile(file)
+    if (out) {
+      setAfterImageId(out.id)
+      setAfterImageUrl(out.originalUrl)
+    }
+    setUploadingAfter(false)
+  }
+
   const handleGalleryFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
     if (files.length === 0) return
@@ -241,6 +287,30 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
 
   const removeGalleryEntry = (idx: number) => {
     setGallery((g) => g.filter((_, i) => i !== idx))
+  }
+
+  // Promote a gallery photo to the cover/lead, sending the old cover back into the gallery.
+  const makeCover = (idx: number) => {
+    setGallery((g) => {
+      const entry = g[idx]
+      if (!entry) return g
+      const newCoverMediaId = typeof entry.image === 'object' ? entry.image.id ?? null : entry.image
+      const newCoverUrl =
+        typeof entry.image === 'object' && entry.image
+          ? (entry.image.url ?? mediaUrl(entry.image, 'hero'))
+          : null
+      if (!newCoverMediaId) return g
+      // Remove the chosen photo from the gallery, and push the OLD cover back in (if any).
+      const next = g.filter((_, i) => i !== idx)
+      if (leadImageId) {
+        next.push({ image: { id: leadImageId, url: leadImageUrl ?? undefined } as Media, caption: null })
+      }
+      // Swap the lead to the chosen photo.
+      setLeadImageId(String(newCoverMediaId))
+      setLeadImageUrl(newCoverUrl)
+      return next
+    })
+    setActiveGalleryIdx(0) // jump to the new cover (always image #1)
   }
 
   const updateCaption = (idx: number, caption: string) => {
@@ -271,10 +341,13 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
         accessPattern: accessPattern || null,
         gallery: galleryPayload,
         sortOrder: Number.isFinite(slot) && slot >= 0 ? slot : 0,
+        space: Number.isFinite(spaceIdx) && spaceIdx >= 0 ? spaceIdx : 0,
         isHotspot: isHotspot,
         hotspotImage: isHotspot ? toIdNum(hotspotImageId) : null,
+        hotspotAfterImage: isHotspot ? toIdNum(afterImageId) : null,
         needsOrganizing: needsOrganizing,
         organizeBy: needsOrganizing && organizeBy ? organizeBy : null,
+        lastOrganizedAt: lastOrganizedAt || null,
       }
 
       const url = isCreating ? '/api/locations' : `/api/locations/${location!.id}`
@@ -317,10 +390,9 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     }
   }
 
-  /** Dashboard URL preserving the bento page this location lives on. */
+  /** Dashboard URL preserving the Space this zone lives in. */
   const dashHrefForCurrent = () => {
-    const so = typeof location?.sortOrder === 'number' ? location.sortOrder : slot
-    const page = Math.max(0, Math.floor((so ?? 0) / BENTO_PAGE_SIZE))
+    const page = Math.max(0, spaceIdx)
     return page > 0 ? `/?page=${page}` : '/'
   }
 
@@ -450,7 +522,7 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
   // Skips while file uploads are in flight (those have their own loading state)
   // and during create mode (which uses the explicit Create button).
   useEffect(() => {
-    if (isCreating || !location || uploadingLead || uploadingGallery || uploadingHotspot) return
+    if (isCreating || !location || uploadingLead || uploadingGallery || uploadingHotspot || uploadingAfter) return
     if (isFirstAutosaveRun.current) {
       isFirstAutosaveRun.current = false
       return
@@ -478,10 +550,13 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
           accessPattern: accessPattern || null,
           gallery: galleryPayload,
           sortOrder: Number.isFinite(slot) && slot >= 0 ? slot : 0,
+          space: Number.isFinite(spaceIdx) && spaceIdx >= 0 ? spaceIdx : 0,
           isHotspot: isHotspot,
           hotspotImage: isHotspot ? toIdNum(hotspotImageId) : null,
+          hotspotAfterImage: isHotspot ? toIdNum(afterImageId) : null,
           needsOrganizing: needsOrganizing,
           organizeBy: needsOrganizing && organizeBy ? organizeBy : null,
+        lastOrganizedAt: lastOrganizedAt || null,
         }
         console.log('[autosave] PATCH body', body, {
           leadImageId,
@@ -520,11 +595,14 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     focalX,
     zoom,
     slot,
+    spaceIdx,
     gallery,
     isHotspot,
     hotspotImageId,
+    afterImageId,
     needsOrganizing,
     organizeBy,
+    lastOrganizedAt,
     isCreating,
     location?.id,
     // Include upload flags so when they flip from true→false (upload done),
@@ -532,28 +610,54 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
     uploadingLead,
     uploadingGallery,
     uploadingHotspot,
+    uploadingAfter,
   ])
 
-  // Flat list of all gallery photos (full-size URLs) for lightbox prev/next navigation.
-  const galleryLightboxImages: LightboxImage[] = gallery
-    .map((g): LightboxImage | null => {
-      const originalUrl =
-        typeof g.image === 'object' && g.image ? (g.image.url ?? mediaUrl(g.image, 'hero')) : null
-      const fullUrl = originalUrl || mediaUrl(g.image, 'hero') || mediaUrl(g.image, 'card')
-      return fullUrl ? { src: fullUrl, caption: g.caption ?? null } : null
-    })
-    .filter((x): x is LightboxImage => x !== null)
+  // Thumbnail (display) + full-size URLs for one gallery entry.
+  const entryUrls = (g: GalleryEntry) => {
+    const originalUrl =
+      typeof g.image === 'object' && g.image ? (g.image.url ?? mediaUrl(g.image, 'hero')) : null
+    const url = originalUrl || mediaUrl(g.image, 'card')
+    const fullUrl = originalUrl || mediaUrl(g.image, 'hero') || url
+    return { url, fullUrl }
+  }
+
+  // Unified image list — the lead/cover photo is always image #1, then the gallery photos.
+  // (No separate hero; the cover lives here as the first feature/thumbnail.)
+  type CoverOrGallery =
+    | { kind: 'lead'; url: string | null; fullUrl: string | null }
+    | { kind: 'gallery'; url: string | null; fullUrl: string | null; caption: string | null; galleryIdx: number }
+  const combinedImages: CoverOrGallery[] = []
+  if (leadImageUrl) combinedImages.push({ kind: 'lead', url: leadImageUrl, fullUrl: leadImageUrl })
+  gallery.forEach((g, gi) => {
+    const { url, fullUrl } = entryUrls(g)
+    combinedImages.push({ kind: 'gallery', url, fullUrl, caption: g.caption ?? null, galleryIdx: gi })
+  })
+
+  // Flat list for the lightbox (cover first), only entries that have a full-size URL.
+  const galleryLightboxImages: LightboxImage[] = combinedImages
+    .filter((c) => !!c.fullUrl)
+    .map((c) => ({ src: c.fullUrl as string, caption: c.kind === 'gallery' ? c.caption : null }))
+
+  // Keep the active feature index in range as photos are added/removed.
+  useEffect(() => {
+    setActiveGalleryIdx((i) => Math.min(i, Math.max(0, combinedImages.length - 1)))
+  }, [combinedImages.length])
+
+  // Scroll the active thumbnail into view in the filmstrip.
+  useEffect(() => {
+    const el = galleryStripRef.current?.querySelector(`[data-thumb="${activeGalleryIdx}"]`)
+    el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+  }, [activeGalleryIdx])
 
   return (
     <div className="si-detail">
       {(() => {
-        // Compute which bento page this location lives on (based on its sortOrder),
-        // then build a Dashboard › Page Name › Location breadcrumb that returns to that page.
-        const sortOrder = typeof location?.sortOrder === 'number' ? location.sortOrder : slot
-        const bentoPage = Math.max(0, Math.floor((sortOrder ?? 0) / BENTO_PAGE_SIZE))
+        // The zone's Space → build a Dashboard › Space name › Zone breadcrumb that returns there.
+        const bentoPage = Math.max(0, spaceIdx)
         const dashHref = bentoPage > 0 ? `/?page=${bentoPage}` : '/'
         const parentPageName = pageNames.find((p) => p.pageIndex === bentoPage)?.name ?? ''
-        const currentName = (name || location?.name || (isCreating ? 'New space' : 'Untitled')).trim()
+        const currentName = (name || location?.name || (isCreating ? 'New zone' : 'Untitled')).trim()
         return (
           <nav className="si-detail-crumb" aria-label="Breadcrumb">
             <Link href={dashHref} className="si-crumb-link">← Dashboard</Link>
@@ -568,50 +672,6 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
           </nav>
         )
       })()}
-
-      {/* Lead hero */}
-      <div className="si-detail-hero">
-        {editing ? (
-          <button
-            type="button"
-            className="si-detail-hero-edit"
-            onClick={() => leadInput.current?.click()}
-            aria-label="Replace lead photo"
-          >
-            {leadImageUrl ? <img src={leadImageUrl} alt="" /> : <span>📷 Add lead photo</span>}
-            {uploadingLead && <span className="si-detail-uploading">Uploading…</span>}
-          </button>
-        ) : leadImageUrl ? (
-          <img src={leadImageUrl} alt="" />
-        ) : (
-          <div className="si-detail-hero-placeholder" aria-hidden>📍</div>
-        )}
-        <input
-          ref={leadInput}
-          type="file"
-          accept="image/*"
-          onChange={handleLeadFile}
-          style={{ display: 'none' }}
-        />
-        {/* Crop drawer toggle — small icon button overlaid on the hero, opens the slider drawer below. */}
-        {leadImageUrl && editing && (
-          <button
-            type="button"
-            className={`si-hero-crop-toggle ${showCrop ? 'is-open' : ''}`}
-            onClick={() => setShowCrop((v) => !v)}
-            aria-expanded={showCrop}
-            aria-controls="si-crop-drawer"
-            title={showCrop ? 'Hide tile crop controls' : 'Adjust tile crop'}
-            aria-label={showCrop ? 'Hide tile crop controls' : 'Adjust tile crop'}
-          >
-            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
-              {/* Simple crop-marks icon */}
-              <path d="M4 1.5v10.5a.5.5 0 0 0 .5.5H14.5" strokeLinecap="round" />
-              <path d="M1.5 4H12a.5.5 0 0 1 .5.5V14.5" strokeLinecap="round" />
-            </svg>
-          </button>
-        )}
-      </div>
 
       {/* Tile crop position sliders — collapsible drawer; preview how the lead image will crop on the dashboard tile.
           Horizontal (X) handles left/right framing; vertical (Y) handles top/bottom; Zoom magnifies around the focal point. */}
@@ -701,73 +761,179 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
         </div>
       )}
 
-      {/* Gallery — sits right under the lead hero so detail photos are immediately visible. */}
+      {/* Gallery — unified bento: the cover (lead) photo is image #1, then detail photos */}
       <section className="si-section">
         <h2 className="si-section-title">Gallery</h2>
-        <div className="si-gallery">
-          {gallery.map((g, idx) => {
-            // Use original URL so vertical photos keep their natural aspect in the masonry layout
-            const originalUrl =
-              typeof g.image === 'object' && g.image
-                ? (g.image.url ?? mediaUrl(g.image, 'hero'))
-                : null
-            const url = originalUrl || mediaUrl(g.image, 'card')
-            const fullUrl = originalUrl || mediaUrl(g.image, 'hero') || url
+        {combinedImages.length === 0 ? (
+          editing ? (
+            <div className="si-gallery-bento">
+              <button
+                type="button"
+                className="si-gallery-feature si-gallery-feature--empty"
+                onClick={() => leadInput.current?.click()}
+              >
+                <span className="si-gallery-add-icon">+</span>
+                <span>{uploadingLead ? 'Uploading…' : 'Add cover photo'}</span>
+              </button>
+            </div>
+          ) : (
+            <p className="si-section-empty">No photos yet — click Edit to add some.</p>
+          )
+        ) : (
+          (() => {
+            const idx = Math.min(activeGalleryIdx, combinedImages.length - 1)
+            const active = combinedImages[idx]
+            const isCover = active.kind === 'lead'
             return (
-              <div className="si-gallery-cell" key={idx}>
-                {url ? (
-                  <button
-                    type="button"
-                    className="si-gallery-img-btn"
-                    onClick={() => {
-                      if (!fullUrl) return
-                      const startIndex = galleryLightboxImages.findIndex((im) => im.src === fullUrl)
-                      setLightbox({ images: galleryLightboxImages, index: startIndex < 0 ? 0 : startIndex })
-                    }}
-                    aria-label="View full size"
-                  >
-                    <img src={url} alt={g.caption ?? ''} />
-                  </button>
-                ) : null}
-                {editing && (
-                  <button
-                    type="button"
-                    className="si-gallery-remove"
-                    onClick={() => removeGalleryEntry(idx)}
-                    aria-label="Remove photo"
-                  >
-                    ✕
-                  </button>
-                )}
-                {editing ? (
+              <div className="si-gallery-bento">
+                <div className="si-gallery-feature">
+                  {active.url && (
+                    <button
+                      type="button"
+                      className="si-gallery-feature-btn"
+                      onClick={() => {
+                        if (!active.fullUrl) return
+                        const startIndex = galleryLightboxImages.findIndex((im) => im.src === active.fullUrl)
+                        setLightbox({ images: galleryLightboxImages, index: startIndex < 0 ? 0 : startIndex })
+                      }}
+                      aria-label="View full size"
+                    >
+                      <img src={active.url} alt="" />
+                    </button>
+                  )}
+                  {isCover && <span className="si-gallery-cover-badge">Cover</span>}
+                  {editing && (
+                    <div className="si-gallery-feature-actions">
+                      {isCover && (
+                        <button
+                          type="button"
+                          className={`si-gallery-feat-btn ${showCrop ? 'is-on' : ''}`}
+                          onClick={() => setShowCrop((v) => !v)}
+                          aria-label="Adjust dashboard tile crop"
+                          title="Adjust dashboard tile crop"
+                        >
+                          <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                            <path d="M4 1.5v10.5a.5.5 0 0 0 .5.5H14.5" strokeLinecap="round" />
+                            <path d="M1.5 4H12a.5.5 0 0 1 .5.5V14.5" strokeLinecap="round" />
+                          </svg>
+                        </button>
+                      )}
+                      {isCover && (
+                        <button
+                          type="button"
+                          className="si-gallery-feat-btn"
+                          onClick={() => leadInput.current?.click()}
+                          aria-label="Replace cover photo"
+                          title="Replace cover photo"
+                        >
+                          📷
+                        </button>
+                      )}
+                      {!isCover && (
+                        <button
+                          type="button"
+                          className="si-gallery-feat-btn si-gallery-feat-btn--cover"
+                          onClick={() => makeCover(active.galleryIdx)}
+                          aria-label="Make this the cover photo"
+                          title="Make cover (swaps with current cover)"
+                        >
+                          ★
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="si-gallery-feat-btn si-gallery-feat-btn--remove"
+                        onClick={() => {
+                          if (isCover) {
+                            setLeadImageId(null)
+                            setLeadImageUrl(null)
+                            setShowCrop(false)
+                          } else {
+                            removeGalleryEntry(active.galleryIdx)
+                          }
+                        }}
+                        aria-label="Remove this photo"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {isCover ? (
+                  <div className="si-gallery-caption-text">Shown on the dashboard tile</div>
+                ) : editing ? (
                   <input
                     className="si-gallery-caption-input"
                     type="text"
-                    value={g.caption ?? ''}
-                    onChange={(e) => updateCaption(idx, e.target.value)}
+                    value={active.caption ?? ''}
+                    onChange={(e) => updateCaption(active.galleryIdx, e.target.value)}
                     placeholder="Caption…"
                     maxLength={120}
                   />
-                ) : g.caption ? (
-                  <div className="si-gallery-caption">{g.caption}</div>
+                ) : active.caption ? (
+                  <div className="si-gallery-caption-text">{active.caption}</div>
                 ) : null}
+
+                <div className="si-gallery-strip-wrap">
+                  {combinedImages.length > 1 && (
+                    <button
+                      type="button"
+                      className="si-gallery-strip-btn"
+                      onClick={() => setActiveGalleryIdx((i) => (i - 1 + combinedImages.length) % combinedImages.length)}
+                      aria-label="Previous photo"
+                    >
+                      ‹
+                    </button>
+                  )}
+                  <div className="si-gallery-strip" ref={galleryStripRef}>
+                    {combinedImages.map((c, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        data-thumb={i}
+                        className={`si-gallery-thumb ${i === idx ? 'is-active' : ''} ${c.kind === 'lead' ? 'si-gallery-thumb--cover' : ''}`}
+                        onClick={() => setActiveGalleryIdx(i)}
+                        aria-label={c.kind === 'lead' ? 'Cover photo' : `Photo ${i + 1}`}
+                        aria-current={i === idx}
+                      >
+                        {c.url && <img src={c.url} alt="" />}
+                        {c.kind === 'lead' && <span className="si-gallery-thumb-tag" aria-hidden>★</span>}
+                      </button>
+                    ))}
+                    {editing && (
+                      <button
+                        type="button"
+                        className="si-gallery-thumb si-gallery-thumb--add"
+                        onClick={() => galleryInput.current?.click()}
+                        aria-label="Add photos"
+                      >
+                        {uploadingGallery ? '…' : '+'}
+                      </button>
+                    )}
+                  </div>
+                  {combinedImages.length > 1 && (
+                    <button
+                      type="button"
+                      className="si-gallery-strip-btn"
+                      onClick={() => setActiveGalleryIdx((i) => (i + 1) % combinedImages.length)}
+                      aria-label="Next photo"
+                    >
+                      ›
+                    </button>
+                  )}
+                </div>
               </div>
             )
-          })}
-          {editing && (
-            <button
-              type="button"
-              className="si-gallery-cell si-gallery-add"
-              onClick={() => galleryInput.current?.click()}
-            >
-              <span className="si-gallery-add-icon">+</span>
-              <span>{uploadingGallery ? 'Uploading…' : 'Add photos'}</span>
-            </button>
-          )}
-          {!editing && gallery.length === 0 && (
-            <p className="si-section-empty">No detail photos yet — click Edit to add some.</p>
-          )}
-        </div>
+          })()
+        )}
+        <input
+          ref={leadInput}
+          type="file"
+          accept="image/*"
+          onChange={handleLeadFile}
+          style={{ display: 'none' }}
+        />
         <input
           ref={galleryInput}
           type="file"
@@ -788,7 +954,7 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={80}
-              placeholder="Space name"
+              placeholder="Zone name"
               autoFocus={isCreating}
             />
             <input
@@ -799,23 +965,36 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
               maxLength={120}
               placeholder="Theme — what belongs here?"
             />
-            {/* Slot + Access frequency share one row to keep the form compact. */}
+            {/* Space picker + Access frequency share one row to keep the form compact. */}
             <div className="si-edit-row--split">
-              <div className="si-edit-field si-edit-field--slot">
-                <span className="si-edit-label">Slot</span>
-                <input
-                  className="si-field si-slot-input"
-                  type="number"
-                  min={1}
-                  value={slot + 1}
-                  onChange={(e) => {
-                    const n = Number.parseInt(e.target.value, 10)
-                    setSlot(Number.isFinite(n) && n >= 1 ? n - 1 : 0)
-                  }}
-                />
-                <span className="si-slot-helper">
-                  Page {Math.floor(slot / 6) + 1} · position {(slot % 6) + 1}
-                </span>
+              <div className="si-edit-field si-edit-field--place">
+                <span className="si-edit-label">Space</span>
+                <select
+                  className="si-field si-select"
+                  value={spaceIdx}
+                  onChange={(e) => setSpaceIdx(Number.parseInt(e.target.value, 10))}
+                  aria-label="Which space this zone belongs to"
+                >
+                  {(() => {
+                    // Offer every known space (by name) + one slot for a brand-new space.
+                    const known = new Set<number>()
+                    pageNames.forEach((p) => known.add(p.pageIndex))
+                    known.add(spaceIdx)
+                    const maxKnown = known.size ? Math.max(...known) : 0
+                    const opts: number[] = []
+                    for (let i = 0; i <= maxKnown; i++) opts.push(i)
+                    opts.push(maxKnown + 1) // "+ New space"
+                    return opts.map((i) => {
+                      const nm = pageNames.find((p) => p.pageIndex === i)?.name
+                      const label = i === maxKnown + 1 ? `+ New space (${i + 1})` : nm ? `${i + 1} · ${nm}` : `Space ${i + 1}`
+                      return (
+                        <option key={i} value={i}>
+                          {label}
+                        </option>
+                      )
+                    })
+                  })()}
+                </select>
               </div>
               <div className="si-edit-field si-edit-field--access">
                 <span className="si-edit-label">Access frequency</span>
@@ -847,11 +1026,11 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
                       <span className="si-switch-slider" aria-hidden />
                     </span>
                     <span className="si-toggle-text">
-                      Hotspot?
-                      <span className="si-toggle-tip" tabIndex={0} role="button" aria-label="What is a hotspot?">
+                      Hot Zone?
+                      <span className="si-toggle-tip" tabIndex={0} role="button" aria-label="What is a hot zone?">
                         ⓘ
                         <span className="si-toggle-tip-bubble" role="tooltip">
-                          A place that&apos;s prone to cluttering — flag problem areas you keep needing to clear, like an entryway table or a junk drawer.
+                          A hot zone is a place that&apos;s prone to cluttering — flag problem areas you keep needing to clear, like an entryway table or a junk drawer.
                         </span>
                       </span>
                     </span>
@@ -879,59 +1058,96 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
               </div>
             </div>
 
-            {/* Hotspot photo reveal */}
+            {/* Hot Zone reveal — two slots side by side: Before + After, each with its own add/replace/remove */}
             {isHotspot && (
               <div className="si-hotspot-photo-wrap">
-                {hotspotImageUrl ? (
-                  <>
-                    <button
-                      type="button"
-                      className="si-hotspot-photo"
-                      onClick={() => setLightbox({ images: [{ src: hotspotImageUrl, caption: 'Hotspot photo' }], index: 0 })}
-                      aria-label="View hotspot photo full size"
-                    >
-                      <img src={hotspotImageUrl} alt="" />
-                    </button>
-                    <div className="si-hotspot-actions">
+                <div className="si-beforeafter">
+                  {/* BEFORE slot */}
+                  <figure className="si-ba-fig">
+                    {hotspotImageUrl ? (
                       <button
                         type="button"
-                        className="si-btn si-btn--ghost si-btn--sm"
+                        className="si-hotspot-photo"
+                        onClick={() => setLightbox({
+                          images: [
+                            { src: hotspotImageUrl, caption: 'Before' },
+                            ...(afterImageUrl ? [{ src: afterImageUrl, caption: 'After' }] : []),
+                          ],
+                          index: 0,
+                        })}
+                        aria-label="View before photo full size"
+                      >
+                        <img src={hotspotImageUrl} alt="" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="si-ba-add"
                         onClick={() => hotspotInput.current?.click()}
+                        aria-label="Add before photo"
                       >
-                        Replace photo
+                        <span className="si-ba-add-icon" aria-hidden>+</span>
+                        {uploadingHotspot && <span className="si-ba-add-loading">Uploading…</span>}
                       </button>
+                    )}
+                    <figcaption className="si-ba-label si-ba-label--before">Before</figcaption>
+                    {hotspotImageUrl && (
+                      <div className="si-ba-actions">
+                        <button type="button" className="si-ba-link" onClick={() => hotspotInput.current?.click()}>Replace</button>
+                        <button type="button" className="si-ba-link si-ba-link--danger" onClick={() => { setHotspotImageId(null); setHotspotImageUrl(null) }}>Remove</button>
+                      </div>
+                    )}
+                  </figure>
+
+                  {/* AFTER slot */}
+                  <figure className="si-ba-fig">
+                    {afterImageUrl ? (
                       <button
                         type="button"
-                        className="si-btn si-btn--danger si-btn--sm"
-                        onClick={() => {
-                          setHotspotImageId(null)
-                          setHotspotImageUrl(null)
-                        }}
+                        className="si-hotspot-photo"
+                        onClick={() => setLightbox({
+                          images: [
+                            ...(hotspotImageUrl ? [{ src: hotspotImageUrl, caption: 'Before' }] : []),
+                            { src: afterImageUrl, caption: 'After' },
+                          ],
+                          index: hotspotImageUrl ? 1 : 0,
+                        })}
+                        aria-label="View after photo full size"
                       >
-                        Remove
+                        <img src={afterImageUrl} alt="" />
                       </button>
-                    </div>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    className="si-tile-edit-photo si-hotspot-photo"
-                    onClick={() => hotspotInput.current?.click()}
-                    aria-label="Upload hotspot photo"
-                  >
-                    <span className="si-tile-edit-photo-empty">
-                      📷 Show what it looks like when cluttered
-                    </span>
-                    {uploadingHotspot && (
-                      <span className="si-tile-edit-photo-loading">Uploading…</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="si-ba-add"
+                        onClick={() => afterInput.current?.click()}
+                        aria-label="Add after photo"
+                      >
+                        <span className="si-ba-add-icon" aria-hidden>+</span>
+                        {uploadingAfter && <span className="si-ba-add-loading">Uploading…</span>}
+                      </button>
                     )}
-                  </button>
-                )}
+                    <figcaption className="si-ba-label si-ba-label--after">After</figcaption>
+                    {afterImageUrl && (
+                      <div className="si-ba-actions">
+                        <button type="button" className="si-ba-link" onClick={() => afterInput.current?.click()}>Replace</button>
+                        <button type="button" className="si-ba-link si-ba-link--danger" onClick={() => { setAfterImageId(null); setAfterImageUrl(null) }}>Remove</button>
+                      </div>
+                    )}
+                  </figure>
+                </div>
                 <input
                   ref={hotspotInput}
                   type="file"
                   accept="image/*"
                   onChange={handleHotspotFile}
+                  style={{ display: 'none' }}
+                />
+                <input
+                  ref={afterInput}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAfterFile}
                   style={{ display: 'none' }}
                 />
               </div>
@@ -950,6 +1166,18 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
                   value={organizeBy}
                   onChange={(e) => setOrganizeBy(e.target.value)}
                 />
+                {/* Done → stamp "last organized" + turn the Organize flag back off */}
+                <button
+                  type="button"
+                  className="si-btn si-btn--sm si-done-organize"
+                  onClick={() => {
+                    setLastOrganizedAt(new Date().toISOString())
+                    setNeedsOrganizing(false)
+                    setOrganizeBy('')
+                  }}
+                >
+                  ✓ Done
+                </button>
                 {organizeBy && (
                   <button
                     type="button"
@@ -961,6 +1189,18 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
                   </button>
                 )}
               </div>
+            )}
+
+            {/* Last-organized timestamp (set by Done) */}
+            {lastOrganizedAt && (
+              <p className="si-last-organized">
+                ✓ Last organized{' '}
+                {new Date(lastOrganizedAt).toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+              </p>
             )}
           </>
         ) : (
@@ -976,6 +1216,83 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
         )}
       </header>
 
+      {/* Items in this space — collapsible accordion, sits above Notes (only for existing spaces) */}
+      {!isCreating && (
+        <section className="si-section si-accordion">
+          <button
+            type="button"
+            className="si-accordion-head"
+            onClick={() => setItemsOpen((v) => !v)}
+            aria-expanded={itemsOpen}
+            aria-controls="si-items-body"
+          >
+            <span className="si-section-title">Items in this space ({spaceItems.length})</span>
+            <span className={`si-accordion-chevron ${itemsOpen ? 'is-open' : ''}`} aria-hidden>⌄</span>
+          </button>
+
+          {itemsOpen && (
+            <div className="si-accordion-body" id="si-items-body">
+              {/* Quick-add a new item straight into this space + pull in an existing unassigned one */}
+              <div className="si-item-add-bar">
+                <form className="si-item-quickadd" onSubmit={handleQuickAddItem}>
+                  <input
+                    className="si-field"
+                    type="text"
+                    value={quickAddName}
+                    onChange={(e) => setQuickAddName(e.target.value)}
+                    placeholder="Add an item to this space…"
+                    maxLength={120}
+                  />
+                  <button
+                    type="submit"
+                    className="si-btn si-btn--primary si-btn--sm"
+                    disabled={!quickAddName.trim() || addingItem}
+                  >
+                    {addingItem ? 'Adding…' : 'Add'}
+                  </button>
+                </form>
+                {availableItems.length > 0 && (
+                  <select
+                    className="si-field si-select si-item-assign-select"
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value) handleAssignExisting(e.target.value)
+                    }}
+                    aria-label="Assign an existing unassigned item to this space"
+                  >
+                    <option value="">+ Assign existing item…</option>
+                    {availableItems.map((it) => (
+                      <option key={it.id} value={it.id}>
+                        {it.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {spaceItems.length > 0 ? (
+                <ul className="si-item-list">
+                  {spaceItems.map((it) => (
+                    <ItemRow
+                      key={it.id}
+                      item={it as never}
+                      locations={locations}
+                      categories={categories}
+                      tags={tags}
+                      onUpdate={handleItemUpdate}
+                      onDelete={handleItemDelete}
+                      highlight={highlightItemId != null && String(it.id) === highlightItemId}
+                    />
+                  ))}
+                </ul>
+              ) : (
+                <p className="si-section-empty">No items here yet — add one above.</p>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
       {/* Notes */}
       <section className="si-section">
         <h2 className="si-section-title">Notes</h2>
@@ -987,70 +1304,6 @@ export function LocationDetail({ location, creatingSlot, items, locations, tags,
           rows={4}
         />
       </section>
-
-      {/* Items (only for existing spaces) */}
-      {!isCreating && (
-        <section className="si-section">
-          <h2 className="si-section-title">Items in this space ({spaceItems.length})</h2>
-
-          {/* Quick-add a new item straight into this space + pull in an existing unassigned one */}
-          <div className="si-item-add-bar">
-            <form className="si-item-quickadd" onSubmit={handleQuickAddItem}>
-              <input
-                className="si-field"
-                type="text"
-                value={quickAddName}
-                onChange={(e) => setQuickAddName(e.target.value)}
-                placeholder="Add an item to this space…"
-                maxLength={120}
-              />
-              <button
-                type="submit"
-                className="si-btn si-btn--primary si-btn--sm"
-                disabled={!quickAddName.trim() || addingItem}
-              >
-                {addingItem ? 'Adding…' : 'Add'}
-              </button>
-            </form>
-            {availableItems.length > 0 && (
-              <select
-                className="si-field si-select si-item-assign-select"
-                value=""
-                onChange={(e) => {
-                  if (e.target.value) handleAssignExisting(e.target.value)
-                }}
-                aria-label="Assign an existing unassigned item to this space"
-              >
-                <option value="">+ Assign existing item…</option>
-                {availableItems.map((it) => (
-                  <option key={it.id} value={it.id}>
-                    {it.name}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          {spaceItems.length > 0 ? (
-            <ul className="si-item-list">
-              {spaceItems.map((it) => (
-                <ItemRow
-                  key={it.id}
-                  item={it as never}
-                  locations={locations}
-                  categories={categories}
-                  tags={tags}
-                  onUpdate={handleItemUpdate}
-                  onDelete={handleItemDelete}
-                  highlight={highlightItemId != null && String(it.id) === highlightItemId}
-                />
-              ))}
-            </ul>
-          ) : (
-            <p className="si-section-empty">No items here yet — add one above.</p>
-          )}
-        </section>
-      )}
 
       {lightbox && (
         <Lightbox

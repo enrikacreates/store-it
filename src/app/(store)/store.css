@@ -376,6 +376,29 @@ a { color: inherit; }
 }
 
 /* ---- Items list ---- */
+/* Collapsible accordion (Items in this space) */
+.si-accordion-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.si-accordion-head .si-section-title { margin: 0; }
+.si-accordion-chevron {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text-muted, #6b6b6b);
+  transition: transform 0.18s ease;
+}
+.si-accordion-chevron.is-open { transform: rotate(180deg); }
+.si-accordion-head:hover .si-accordion-chevron { color: var(--text, #1a1a1a); }
+.si-accordion-body { margin-top: 14px; }
+
 /* Quick-add + assign-existing bar above the items list */
 .si-item-add-bar {
   display: flex;
@@ -972,96 +995,192 @@ button.si-cat-chip:hover {
 }
 
 /* ---- Gallery (masonry-style via CSS columns) ---- */
-.si-gallery {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  align-items: start;
+/* ---- Gallery: self-contained bento (feature image + thumbnail filmstrip) ---- */
+.si-gallery-bento {
+  max-width: 400px;
 }
-@media (max-width: 720px) {
-  .si-gallery { grid-template-columns: repeat(2, 1fr); }
-}
-@media (max-width: 480px) {
-  .si-gallery { grid-template-columns: 1fr; }
-}
-.si-gallery-cell {
+.si-gallery-feature {
   position: relative;
   width: 100%;
-  background: var(--card);
-  border-radius: 12px;
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
   overflow: hidden;
+  background: var(--bg);
   box-shadow: var(--shadow-card);
 }
-.si-gallery-cell img {
+.si-gallery-feature-btn {
+  display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: zoom-in;
+}
+.si-gallery-feature-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   display: block;
 }
-.si-gallery-caption {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 8px 12px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 500;
-}
-.si-gallery-caption-input {
-  position: absolute;
-  bottom: 6px;
-  left: 6px;
-  right: 6px;
-  font-family: inherit;
-  font-size: 12px;
-  padding: 6px 10px;
-  border: none;
-  outline: none;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-.si-gallery-remove {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  border: none;
-  cursor: pointer;
-  font-size: 12px;
+.si-gallery-feature--empty {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  z-index: 2;
-}
-.si-gallery-add {
+  gap: 6px;
   cursor: pointer;
   border: 2px dashed rgba(26, 26, 26, 0.18);
   background: transparent;
   color: var(--orange);
   font-size: 13px;
   font-weight: 600;
-  text-align: center;
-  padding: 40px 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 140px;
 }
-.si-gallery-add:hover {
-  background: #FFF8F2;
+.si-gallery-feature--empty:hover {
+  background: #fff8f2;
   border-color: var(--orange);
 }
 .si-gallery-add-icon {
   font-size: 28px;
   font-weight: 300;
+}
+/* Cover badge (top-left of the feature) marks the dashboard-tile image */
+.si-gallery-cover-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+}
+/* Action cluster (crop / replace / remove) top-right of the feature */
+.si-gallery-feature-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+}
+.si-gallery-feat-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--text, #1a1a1a);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.si-gallery-feat-btn:hover { background: #fff; }
+.si-gallery-feat-btn.is-on { background: var(--orange, #fa9b64); color: #fff; }
+.si-gallery-feat-btn--remove:hover { background: var(--red, #e5484d); color: #fff; }
+.si-gallery-feat-btn--cover:hover { background: var(--orange, #fa9b64); color: #fff; }
+/* Star marker on the cover thumbnail */
+.si-gallery-thumb--cover { position: relative; }
+.si-gallery-thumb-tag {
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  font-size: 10px;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+}
+.si-gallery-caption-input {
+  width: 100%;
+  margin-top: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 8px 12px;
+  border: none;
+  outline: none;
+  border-radius: 8px;
+  background: var(--card);
+  box-shadow: var(--shadow-input, var(--shadow-card));
+}
+.si-gallery-caption-text {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.si-gallery-strip-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+.si-gallery-strip-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+.si-gallery-strip-btn:hover { color: var(--orange); transform: translateY(-1px); }
+.si-gallery-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  flex: 1;
+  padding: 2px;
+  scrollbar-width: thin;
+}
+.si-gallery-thumb {
+  flex-shrink: 0;
+  width: 54px;
+  height: 54px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: var(--bg);
+  box-shadow: var(--shadow-card);
+}
+.si-gallery-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.si-gallery-thumb.is-active {
+  outline: 2px solid var(--orange);
+  outline-offset: 1px;
+}
+.si-gallery-thumb--add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--orange);
+  font-size: 22px;
+  font-weight: 300;
+  border: 2px dashed rgba(26, 26, 26, 0.18);
+  background: transparent;
+  box-shadow: none;
 }
 
 .si-slot-input {
@@ -1092,10 +1211,39 @@ button.si-cat-chip:hover {
   width: 110px;
   flex-shrink: 0;
 }
+/* Page + position inputs (move a space between dashboard pages intuitively) */
+.si-edit-field--place {
+  width: 128px;
+  flex-shrink: 0;
+}
+.si-place-inputs {
+  display: flex;
+  gap: 6px;
+}
+.si-place-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.si-place-cell > span {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.si-place-input {
+  width: 100%;
+  font-size: 14px;
+  text-align: center;
+  padding: 9px 4px;
+}
 .si-edit-field--access {
-  /* Don't grow greedily — cap the width so the toggles fit on the same row to the right. */
-  flex: 0 1 260px;
-  min-width: 180px;
+  /* Keep the dropdown compact so the two toggles fit in the open space to its right. */
+  flex: 0 1 188px;
+  min-width: 150px;
 }
 .si-edit-field--access .si-select {
   width: 100%;
@@ -1109,21 +1257,20 @@ button.si-cat-chip:hover {
 .si-toggles-inline {
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 16px;
   min-height: 44px;
 }
-@media (max-width: 600px) {
-  .si-edit-field--slot {
-    width: 90px;
+@media (max-width: 480px) {
+  .si-edit-field--slot,
+  .si-edit-field--place {
+    width: 100%;
   }
   .si-edit-field--toggles {
     width: 100%;
+    margin-left: 0;
   }
   .si-edit-field--toggles .si-edit-label {
     display: none;
-  }
-  .si-toggles-inline {
-    min-height: 0;
   }
 }
 
@@ -1481,6 +1628,103 @@ button.si-cat-chip:hover {
 .si-hotspot-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+}
+/* Hot Zone Before/After pair */
+.si-beforeafter {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  width: 100%;
+  max-width: 420px;
+}
+/* Each slot is a column: image-or-add box, then label, then replace/remove */
+.si-ba-fig {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.si-ba-fig .si-hotspot-photo {
+  width: 100%;
+}
+.si-ba-fig .si-hotspot-photo img {
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  max-height: none;
+  border-radius: 12px;
+}
+/* Empty "+" add slot */
+.si-ba-add {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border: 2px dashed rgba(26, 26, 26, 0.18);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--orange, #fa9b64);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.si-ba-add:hover {
+  background: #fff8f2;
+  border-color: var(--orange, #fa9b64);
+}
+.si-ba-add-icon {
+  font-size: 34px;
+  font-weight: 300;
+  line-height: 1;
+}
+.si-ba-add-loading {
+  position: absolute;
+  bottom: 8px;
+  font-size: 11px;
+  color: var(--text-muted, #6b6b6b);
+}
+/* Label under each slot */
+.si-ba-label {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted, #6b6b6b);
+}
+.si-ba-label--after { color: #2f7d65; }
+/* Replace / Remove links under a filled slot */
+.si-ba-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+.si-ba-link {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted, #6b6b6b);
+  padding: 0;
+}
+.si-ba-link:hover { color: var(--text, #1a1a1a); }
+.si-ba-link--danger:hover { color: var(--red, #e5484d); }
+/* "Done" button in the "By when?" bar — stamps last-organized + resets the Organize flag */
+.si-done-organize {
+  margin-left: 4px;
+  background: var(--green, #79c9b1);
+  color: #fff;
+  white-space: nowrap;
+}
+/* Last-organized timestamp line */
+.si-last-organized {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2f7d65;
 }
 
 /* ---- Gallery image button (lightbox trigger) ---- */
@@ -1544,34 +1788,68 @@ button.si-cat-chip:hover {
 .si-spaces-namebar {
   display: flex;
   align-items: center;
+  gap: 8px;
+}
+/* Move-this-page control (reorders the whole page) — distinct from the navigation dropdown */
+.si-page-move {
+  display: inline-flex;
+  align-items: center;
   gap: 4px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--card, #fff);
+  box-shadow: var(--shadow-card, 0 1px 3px rgba(0, 0, 0, 0.08));
+  color: var(--text-muted, #6b6b6b);
+}
+.si-page-move-input {
+  width: 34px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  border: none;
+  background: transparent;
+  color: var(--text, #1a1a1a);
+  padding: 2px 0;
+}
+.si-page-move-input:focus {
+  outline: 2px solid var(--orange, #fa9b64);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+.si-page-move-total {
+  font-size: 11px;
+  color: var(--text-muted, #6b6b6b);
 }
 .si-page-jump {
   position: relative;
   display: inline-flex;
 }
+/* Always-visible button so it's clearly the "jump to a page" control, distinct from the editable title */
 .si-page-jump-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
   border: none;
-  background: transparent;
+  background: var(--card, #fff);
   color: var(--text-muted, #6b6b6b);
+  box-shadow: var(--shadow-card, 0 1px 3px rgba(0,0,0,.08));
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 .si-page-jump-toggle:hover {
-  background: var(--card, #fff);
   color: var(--text, #1a1a1a);
+  transform: translateY(-1px);
 }
 .si-page-jump-toggle.is-open {
-  background: var(--card, #fff);
-  color: var(--text, #1a1a1a);
-  transform: rotate(180deg);
+  background: var(--text, #1a1a1a);
+  color: #fff;
 }
+.si-page-jump-toggle svg { transition: transform 0.15s ease; }
+.si-page-jump-toggle.is-open svg { transform: rotate(180deg); }
 .si-page-jump-menu {
   position: absolute;
   top: calc(100% + 6px);
@@ -1698,8 +1976,7 @@ button.si-cat-chip:hover {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-left: 12px;
-  padding: 6px 10px;
+  padding: 8px 12px;
   background: var(--card, #fff);
   border-radius: 10px;
   box-shadow: var(--shadow-card, 0 1px 3px rgba(0, 0, 0, 0.08));
@@ -1734,15 +2011,21 @@ button.si-cat-chip:hover {
   color: var(--text);
   background: transparent;
   border: none;
-  padding: 4px 0;
-  cursor: pointer;
+  padding: 4px 8px;
+  margin-left: -8px; /* offset padding so the title stays visually flush-left */
+  border-radius: 8px;
+  cursor: text;
   text-align: left;
   align-self: flex-start;
-  margin-bottom: -2px;
-  transition: color 0.15s ease;
+  /* Dotted underline signals the title is editable (click to rename) */
+  text-decoration: underline dotted rgba(26, 26, 26, 0.28);
+  text-underline-offset: 4px;
+  transition: color 0.15s ease, background 0.15s ease;
 }
 .si-page-label:hover {
   color: var(--orange);
+  background: rgba(26, 26, 26, 0.05);
+  text-decoration-color: var(--orange);
 }
 .si-page-label--empty {
   color: var(--text-muted);
@@ -1751,6 +2034,8 @@ button.si-cat-chip:hover {
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.04em;
+  cursor: pointer;
+  text-decoration: none;
 }
 .si-page-label-input {
   font-family: Georgia, 'Times New Roman', serif;
@@ -1866,7 +2151,49 @@ button.si-cat-chip:hover {
   min-width: 48px;
   text-align: center;
 }
-/* "+ Add page" button — sits to the right of the pagination arrows in the bento nav. */
+/* Bento stage: positions the prev/next Space chevrons at the vertical center of the bento edges */
+.si-bento-stage {
+  position: relative;
+}
+.si-bento-side-chevron {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--card, #fff);
+  color: var(--text, #1a1a1a);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.16);
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
+}
+.si-bento-side-chevron--prev { left: -8px; }
+.si-bento-side-chevron--next { right: -8px; }
+.si-bento-side-chevron:hover:not(:disabled) {
+  background: var(--orange, #fa9b64);
+  color: #fff;
+}
+.si-bento-side-chevron--prev:hover:not(:disabled) { transform: translateY(-50%) scale(1.08); }
+.si-bento-side-chevron--next:hover:not(:disabled) { transform: translateY(-50%) scale(1.08); }
+.si-bento-side-chevron:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+@media (max-width: 560px) {
+  .si-bento-side-chevron { width: 34px; height: 34px; font-size: 20px; }
+  .si-bento-side-chevron--prev { left: 2px; }
+  .si-bento-side-chevron--next { right: 2px; }
+}
+
+/* "+ Add space" button in the bento nav. */
 .si-bento-nav-add {
   margin-left: 12px;
   padding: 6px 12px;

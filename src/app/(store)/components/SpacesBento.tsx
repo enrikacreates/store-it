@@ -27,6 +27,7 @@ type Location = {
   image?: Media | string | null
   accessPattern?: string | null
   sortOrder?: number | null
+  space?: number | null
   needsOrganizing?: boolean | null
   organizeBy?: string | null
 }
@@ -228,18 +229,10 @@ function PageJumpDropdown({
   )
 }
 
-function DroppableAddCell({ slot }: { slot: number }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `add:${slot}` })
-  const style: React.CSSProperties = {
-    position: 'relative',
-    height: '100%',
-    width: '100%',
-    outline: isOver ? '3px solid var(--orange)' : 'none',
-    outlineOffset: isOver ? '-3px' : 0,
-  }
+function DroppableAddCell({ space }: { space: number }) {
   return (
-    <div ref={setNodeRef} style={style}>
-      <AddLocationTile targetSlot={slot} />
+    <div style={{ position: 'relative', height: '100%', width: '100%' }}>
+      <AddLocationTile space={space} />
     </div>
   )
 }
@@ -305,44 +298,32 @@ export function SpacesBento({
     setPageNames(initialPageNames)
   }, [initialPageNames])
 
-  // Build slot map keyed by sortOrder, plus reverse locId→slot lookup.
-  const slotMap = new Map<number, Location>()
-  const locToSlot = new Map<string, number>()
-  const taken = new Set<number>()
-  const unsorted: Location[] = []
+  // Group zones by Space. A zone's space = explicit `space` field, falling back to the legacy
+  // derivation floor(sortOrder/6) so un-migrated data lands in the same place. Spaces hold
+  // UNLIMITED zones, ordered within a space by sortOrder.
+  const spaceOf = (l: Location) =>
+    typeof l.space === 'number' ? l.space : Math.floor((l.sortOrder ?? 0) / PAGE_SIZE)
+  const spacesMap = new Map<number, Location[]>()
   for (const loc of locations) {
-    if (typeof loc.sortOrder === 'number' && !taken.has(loc.sortOrder)) {
-      slotMap.set(loc.sortOrder, loc)
-      locToSlot.set(loc.id, loc.sortOrder)
-      taken.add(loc.sortOrder)
-    } else {
-      unsorted.push(loc)
-    }
+    const s = Math.max(0, spaceOf(loc))
+    const arr = spacesMap.get(s) ?? []
+    arr.push(loc)
+    spacesMap.set(s, arr)
   }
-  let cursor = 0
-  for (const loc of unsorted) {
-    while (taken.has(cursor)) cursor++
-    slotMap.set(cursor, loc)
-    locToSlot.set(loc.id, cursor)
-    taken.add(cursor)
-    cursor++
+  for (const arr of spacesMap.values()) {
+    arr.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
   }
 
-  // Pagination: pages are derived from slot usage (MIN_PAGES floor). The user can request
-  // extra empty pages via the "+ Add page" button — those go away once any location lands
-  // on them (locations.length change resets the counter).
-  const maxSlot = slotMap.size === 0 ? 0 : Math.max(...slotMap.keys())
-  const baseTotalPages = Math.max(MIN_PAGES, Math.ceil((maxSlot + 1) / PAGE_SIZE))
-  const totalPages = baseTotalPages + extraPages
+  // "Pages" are now Spaces. extraPages = user-requested empty spaces via "+ Add space"
+  // (reset when locations change).
+  const maxSpace = spacesMap.size === 0 ? 0 : Math.max(...spacesMap.keys())
+  const totalPages = Math.max(MIN_PAGES, maxSpace + 1) + extraPages
   const safePage = Math.min(urlPage, totalPages - 1)
-  const start = safePage * PAGE_SIZE
-  const end = start + PAGE_SIZE
+  const currentZones = spacesMap.get(safePage) ?? []
 
-  const cells: CellInfo[] = []
-  for (let s = start; s < end; s++) {
-    const loc = slotMap.get(s)
-    cells.push(loc ? { kind: 'loc', loc, slot: s } : { kind: 'add', slot: s })
-  }
+  // Cells: every zone in the current space (no cap), then one "add zone" cell.
+  const cells: CellInfo[] = currentZones.map((loc, i) => ({ kind: 'loc', loc, slot: i }))
+  cells.push({ kind: 'add', slot: currentZones.length })
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -366,59 +347,38 @@ export function SpacesBento({
     const activeId = String(active.id)
     const overId = String(over.id)
 
-    if (!activeId.startsWith('loc:')) return
-    const activeLocId = activeId.slice('loc:'.length)
-    const activeLoc = locations.find((l) => String(l.id) === activeLocId)
-    if (!activeLoc) return
+    // Reorder WITHIN a space by swapping sortOrder between the dragged and target zone.
+    if (!activeId.startsWith('loc:') || !overId.startsWith('loc:')) return
+    const activeLoc = locations.find((l) => String(l.id) === activeId.slice('loc:'.length))
+    const overLoc = locations.find((l) => String(l.id) === overId.slice('loc:'.length))
+    if (!activeLoc || !overLoc) return
 
-    const oldSlot = locToSlot.get(String(activeLoc.id))
-    if (oldSlot === undefined) return
+    const aOrder = activeLoc.sortOrder ?? 0
+    const bOrder = overLoc.sortOrder ?? 0
+    if (aOrder === bOrder) return
 
-    let targetSlot: number
-    let displacedLoc: Location | undefined
-
-    if (overId.startsWith('add:')) {
-      targetSlot = Number.parseInt(overId.slice('add:'.length), 10)
-    } else if (overId.startsWith('loc:')) {
-      const overLocId = overId.slice('loc:'.length)
-      displacedLoc = locations.find((l) => String(l.id) === overLocId)
-      const displacedSlot = displacedLoc ? locToSlot.get(String(displacedLoc.id)) : undefined
-      if (!displacedLoc || displacedSlot === undefined) return
-      targetSlot = displacedSlot
-    } else {
-      return
-    }
-
-    if (targetSlot === oldSlot) return
-
-    // Optimistic local update
+    // Optimistic swap
     setLocations((prev) =>
       prev.map((l) => {
-        if (String(l.id) === String(activeLoc.id)) return { ...l, sortOrder: targetSlot }
-        if (displacedLoc && String(l.id) === String(displacedLoc.id))
-          return { ...l, sortOrder: oldSlot }
+        if (String(l.id) === String(activeLoc.id)) return { ...l, sortOrder: bOrder }
+        if (String(l.id) === String(overLoc.id)) return { ...l, sortOrder: aOrder }
         return l
       }),
     )
 
     try {
-      const calls: Promise<Response>[] = [
+      await Promise.all([
         fetch(`/api/locations/${activeLoc.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sortOrder: targetSlot }),
+          body: JSON.stringify({ sortOrder: bOrder }),
         }),
-      ]
-      if (displacedLoc) {
-        calls.push(
-          fetch(`/api/locations/${displacedLoc.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sortOrder: oldSlot }),
-          }),
-        )
-      }
-      await Promise.all(calls)
+        fetch(`/api/locations/${overLoc.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sortOrder: aOrder }),
+        }),
+      ])
       router.refresh()
     } catch {
       router.refresh()
@@ -484,16 +444,81 @@ export function SpacesBento({
     }
   }
 
+  // Move the CURRENT page to a new index, carrying its tiles with it. Reorders the page list,
+  // recomputes every affected location's sortOrder, and remaps the space-pages name records.
+  const movePage = async (toIndex: number) => {
+    const from = safePage
+    const to = Math.min(Math.max(toIndex, 0), totalPages - 1)
+    if (to === from) return
+
+    // Reorder the page list → oldPageIndex → newPageIndex map.
+    const order = Array.from({ length: totalPages }, (_, k) => k)
+    order.splice(from, 1)
+    order.splice(to, 0, from)
+    const remap = new Map<number, number>()
+    order.forEach((oldIdx, newIdx) => remap.set(oldIdx, newIdx))
+
+    // Zones whose space changes → new `space` value (sortOrder/within-space order unchanged).
+    const locUpdates: { id: string; space: number }[] = []
+    locations.forEach((l) => {
+      const oldSpace = Math.max(0, spaceOf(l))
+      const newSpace = remap.get(oldSpace) ?? oldSpace
+      if (newSpace !== oldSpace) locUpdates.push({ id: l.id, space: newSpace })
+    })
+    // Space-name records whose index changes.
+    const nameUpdates: { id: string; pageIndex: number }[] = []
+    pageNames.forEach((p) => {
+      const newIdx = remap.get(p.pageIndex) ?? p.pageIndex
+      if (newIdx !== p.pageIndex) nameUpdates.push({ id: p.id, pageIndex: newIdx })
+    })
+
+    // Optimistic local update, then follow the space to its new index.
+    setLocations((prev) =>
+      prev.map((l) => {
+        const u = locUpdates.find((x) => x.id === l.id)
+        return u ? { ...l, space: u.space } : l
+      }),
+    )
+    setPageNames((prev) =>
+      prev.map((p) => {
+        const u = nameUpdates.find((x) => x.id === p.id)
+        return u ? { ...p, pageIndex: u.pageIndex } : p
+      }),
+    )
+    goToPage(to)
+
+    try {
+      await Promise.all([
+        ...locUpdates.map((u) =>
+          fetch(`/api/locations/${u.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ space: u.space }),
+          }),
+        ),
+        ...nameUpdates
+          .filter((u) => !u.id.startsWith('temp-'))
+          .map((u) =>
+            fetch(`/api/space-pages/${u.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ pageIndex: u.pageIndex }),
+            }),
+          ),
+      ])
+      router.refresh()
+    } catch {
+      router.refresh()
+    }
+  }
+
   const currentPageName = pageNames.find((p) => p.pageIndex === safePage)?.name ?? ''
 
-  // Build the page-jump list: one entry per page, with its name and how many spaces it holds.
+  // Build the space-jump list: one entry per space, with its name and zone count.
   const pageList: PageJumpEntry[] = Array.from({ length: totalPages }, (_, i) => ({
     pageIndex: i,
     name: pageNames.find((p) => p.pageIndex === i)?.name ?? '',
-    locCount: locations.filter((l) => {
-      const s = locToSlot.get(l.id)
-      return s !== undefined && Math.floor(s / PAGE_SIZE) === i
-    }).length,
+    locCount: (spacesMap.get(i) ?? []).length,
   }))
 
   return (
@@ -502,6 +527,29 @@ export function SpacesBento({
         <div className="si-spaces-namebar">
           <PageLabel pageIndex={safePage} name={currentPageName} onSave={handleSavePageName} />
           <PageJumpDropdown pages={pageList} currentPage={safePage} onJump={(i) => goToPage(i)} />
+          {/* Move THIS page to a different position (reorders the page + its tiles) */}
+          <div className="si-page-move" title="Move this page to a different position">
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+              <path d="M5 6 L8 3 L11 6 M5 10 L8 13 L11 10" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <input
+              key={`pagemove-${safePage}`}
+              type="number"
+              className="si-page-move-input"
+              min={1}
+              max={totalPages}
+              defaultValue={safePage + 1}
+              aria-label="Move this page to position"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.currentTarget.blur()
+              }}
+              onBlur={(e) => {
+                const n = Number.parseInt(e.target.value, 10)
+                if (Number.isFinite(n) && n - 1 !== safePage) movePage(n - 1)
+              }}
+            />
+            <span className="si-page-move-total">/ {totalPages}</span>
+          </div>
         </div>
         <button
           type="button"
@@ -518,6 +566,18 @@ export function SpacesBento({
           {organizeCount > 0 && <span className="si-organize-pill-count">{organizeCount}</span>}
         </button>
       </div>
+      <div className="si-bento-stage">
+        {totalPages > 1 && (
+          <button
+            type="button"
+            className="si-bento-side-chevron si-bento-side-chevron--prev"
+            onClick={() => goToPage(safePage - 1)}
+            disabled={safePage === 0}
+            aria-label="Previous space"
+          >
+            ‹
+          </button>
+        )}
       {mounted ? (
         <DndContext
           sensors={sensors}
@@ -535,7 +595,7 @@ export function SpacesBento({
                   dimmed={organizeFilter && !c.loc.needsOrganizing}
                 />
               ) : (
-                <DroppableAddCell key={cellId(c)} slot={c.slot} />
+                <DroppableAddCell key={cellId(c)} space={safePage} />
               ),
             )}
           </BentoGrid>
@@ -564,48 +624,42 @@ export function SpacesBento({
                 <LocationTile location={c.loc as never} />
               </div>
             ) : (
-              <AddLocationTile key={cellId(c)} targetSlot={c.slot} />
+              <AddLocationTile key={cellId(c)} space={safePage} />
             ),
           )}
         </BentoGrid>
       )}
-      <nav className="si-bento-nav" aria-label="Spaces pages">
-        <button
-          type="button"
-          className="si-bento-nav-btn"
-          onClick={() => goToPage(safePage - 1)}
-          disabled={safePage === 0}
-          aria-label="Previous page"
-        >
-          ‹
-        </button>
+        {totalPages > 1 && (
+          <button
+            type="button"
+            className="si-bento-side-chevron si-bento-side-chevron--next"
+            onClick={() => goToPage(safePage + 1)}
+            disabled={safePage === totalPages - 1}
+            aria-label="Next space"
+          >
+            ›
+          </button>
+        )}
+      </div>
+      <nav className="si-bento-nav" aria-label="Spaces">
         <span className="si-bento-nav-info">{safePage + 1} / {totalPages}</span>
-        <button
-          type="button"
-          className="si-bento-nav-btn"
-          onClick={() => goToPage(safePage + 1)}
-          disabled={safePage === totalPages - 1}
-          aria-label="Next page"
-        >
-          ›
-        </button>
         <button
           type="button"
           className="si-bento-nav-add"
           onClick={() => {
-            // Add a fresh empty page and jump to it so the user can start placing locations.
+            // Add a fresh empty space and jump to it so the user can start adding zones.
             const newPageIdx = totalPages
             setExtraPages((n) => n + 1)
             goToPage(newPageIdx)
           }}
-          title="Add a new empty page"
-          aria-label="Add a new empty page"
+          title="Add a new empty space"
+          aria-label="Add a new empty space"
         >
-          + Add page
+          + Add space
         </button>
       </nav>
       {activeDragLoc && (
-        <div className="si-spaces-hint">Drop on a tile to swap, or on an empty slot to move.</div>
+        <div className="si-spaces-hint">Drop on a zone to swap their order.</div>
       )}
     </div>
   )

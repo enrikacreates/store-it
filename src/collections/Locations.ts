@@ -1,6 +1,20 @@
 import type { CollectionConfig } from 'payload'
 import { ownerScopedRead, ownerScopedWrite } from '../access'
 
+/**
+ * VOCABULARY MAP (UI label ↔ data model) — keep in sync to avoid future confusion:
+ *   • UI "Zone"        = a `locations` record (a storage spot, e.g. "Music Cabinet").
+ *                        The DB collection stays `locations` even though the UI says "Zone".
+ *   • UI "Space"       = a container/page of zones. A zone's space is the `space` field (0-based;
+ *                        falls back to floor(sortOrder/6) when null). Spaces hold UNLIMITED zones.
+ *                        Space NAMES live in the `space-pages` collection keyed by pageIndex
+ *                        (= the space index). `sortOrder` orders zones WITHIN their space.
+ *   • UI "Hot Zone"    = `isHotspot` (a zone prone to clutter).
+ *                        `hotspotImage`      = the cluttered BEFORE photo.
+ *                        `hotspotAfterImage` = the cleaned AFTER photo (before/after motivation).
+ *   • UI "Organize it?"= `needsOrganizing` (+ `organizeBy` target date).
+ *   • Tile crop for the dashboard image: `imageFocalX` / `imageFocalY` (0–100) + `imageZoom` (100–300).
+ */
 export const Locations: CollectionConfig = {
   slug: 'locations',
   admin: {
@@ -96,10 +110,10 @@ export const Locations: CollectionConfig = {
     {
       name: 'isHotspot',
       type: 'checkbox',
-      label: 'Hotspot',
+      label: 'Hot Zone',
       defaultValue: false,
       admin: {
-        description: 'A place that attracts clutter — track problem areas you keep needing to clear.',
+        description: 'UI "Hot Zone" — a zone prone to clutter you keep needing to clear.',
       },
     },
     {
@@ -124,11 +138,27 @@ export const Locations: CollectionConfig = {
       },
     },
     {
+      name: 'lastOrganizedAt',
+      type: 'date',
+      admin: {
+        description: 'Timestamp set when the user taps "Done" — when this zone was last organized.',
+        readOnly: true,
+      },
+    },
+    {
       name: 'hotspotImage',
       type: 'upload',
       relationTo: 'media',
       admin: {
-        description: 'A photo showing what this space looks like when cluttered.',
+        description: 'Hot Zone BEFORE photo — what this zone looks like when cluttered.',
+      },
+    },
+    {
+      name: 'hotspotAfterImage',
+      type: 'upload',
+      relationTo: 'media',
+      admin: {
+        description: 'Hot Zone AFTER photo — captured via the "Done" button once the zone is cleaned up (before/after).',
       },
     },
     {
@@ -166,10 +196,21 @@ export const Locations: CollectionConfig = {
       hasMany: true,
     },
     {
+      name: 'space',
+      type: 'number',
+      admin: {
+        position: 'sidebar',
+        description: 'Which Space (page) this zone belongs to (0-based). Spaces hold unlimited zones. If null, falls back to floor(sortOrder/6) for backward compatibility.',
+      },
+    },
+    {
       name: 'sortOrder',
       type: 'number',
       defaultValue: 0,
-      admin: { position: 'sidebar' },
+      admin: {
+        position: 'sidebar',
+        description: 'Order of this zone WITHIN its space (ascending).',
+      },
     },
     {
       name: 'owner',
